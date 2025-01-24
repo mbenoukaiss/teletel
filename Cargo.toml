@@ -1,0 +1,10 @@
+[package]
+name = "teletel"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serialport = { version = "4.7.0", optional = true }
+
+[features]
+serial = ["dep:serialport"]
