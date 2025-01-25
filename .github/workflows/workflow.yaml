@@ -1,0 +1,50 @@
+name: Pipeline
+
+on:
+    push:
+    pull_request:
+    workflow_dispatch:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    ci:
+        name: Continuous integration
+        runs-on: ubuntu-latest
+        container: marwanebenoukaiss/rust:latest
+
+        steps:
+            - name: Check out repository code
+              uses: actions/checkout@v4
+
+            - name: Set up cargo cache
+              uses: actions/cache@v4
+              continue-on-error: false
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      target/
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: ${{ runner.os }}-cargo
+
+            - name: Lint
+              continue-on-error: true
+              run: cargo clippy -- -D warnings
+
+            - name: Audit
+              continue-on-error: true
+              run: |
+                  rm -rf ~/.cargo/advisory-db
+                  cargo audit
+                  cargo pants
+
+            - name: Build the application
+              run: cargo build
+
+            - name: Run tests
+              run: cargo test
