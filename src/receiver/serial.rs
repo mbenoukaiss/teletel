@@ -1,5 +1,5 @@
 use std::io::Write;
-use crate::backend::Backend;
+use crate::receiver::TeletelReceiver;
 use serialport::{DataBits, Parity, SerialPort};
 use std::time::Duration;
 
@@ -10,13 +10,13 @@ pub enum BaudRate {
     B9600 = 9600,
 }
 
-pub struct SerialBackend {
+pub struct SerialReceiver {
     port: Box<dyn SerialPort>,
 }
 
-impl SerialBackend {
+impl SerialReceiver {
     pub fn new<S: AsRef<str>>(path: S, baud_rate: BaudRate) -> Self {
-        SerialBackend {
+        SerialReceiver {
             port: serialport::new(path.as_ref(), baud_rate as u32)
                 .timeout(Duration::from_millis(10))
                 .parity(Parity::Even)
@@ -27,8 +27,8 @@ impl SerialBackend {
     }
 }
 
-impl Backend for SerialBackend {
+impl TeletelReceiver for SerialReceiver {
     fn send(&mut self, bytes: &[u8]) {
-        self.port.write_all(&bytes).expect("Write failed");
+        self.port.write(&bytes).expect("Write failed");
     }
 }

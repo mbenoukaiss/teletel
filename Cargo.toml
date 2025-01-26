@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 teletel-derive = { path = "derive" }
 serialport = { version = "4.7.0", optional = true }
+unidecode = "0.3.0"
 
 [features]
 serial = ["dep:serialport"]

@@ -1,6 +1,6 @@
-use crate::backend::Backend;
+use crate::receiver::TeletelReceiver;
 
-impl Backend for Vec<u8> {
+impl TeletelReceiver for Vec<u8> {
     fn send(&mut self, bytes: &[u8]) {
         self.extend_from_slice(bytes);
     }

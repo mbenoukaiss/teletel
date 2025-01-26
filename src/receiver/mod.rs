@@ -4,8 +4,8 @@ mod buffer;
 mod serial;
 
 #[cfg(feature = "serial")]
-pub use serial::{BaudRate, SerialBackend};
+pub use serial::{BaudRate, SerialReceiver};
 
-pub trait Backend {
+pub trait TeletelReceiver {
     fn send(&mut self, bytes: &[u8]);
 }

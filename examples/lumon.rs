@@ -1,13 +1,13 @@
 #[macro_use]
 extern crate teletel;
 
-use teletel::backend::{Backend, BaudRate, SerialBackend};
+use teletel::receiver::{TeletelReceiver, BaudRate, SerialReceiver};
 use teletel::{Big, Clear, Inverted, Move, Repeat, SemiGraphic};
 
 /// Displays the Lumon droplet logo from
 /// Severance on the minitel screen
 fn main() {
-    let mut port = SerialBackend::new("/dev/ttyUSB0", BaudRate::B9600);
+    let mut port = SerialReceiver::new("/dev/ttyUSB0", BaudRate::B9600);
 
     draw_background(&mut port);
     draw_droplet(&mut port);
@@ -18,7 +18,7 @@ fn main() {
     ]);
 }
 
-fn draw_background(port: &mut dyn Backend) {
+fn draw_background(port: &mut dyn TeletelReceiver) {
     send!(port, [
         Clear,
 
@@ -69,7 +69,7 @@ fn draw_background(port: &mut dyn Backend) {
     ]);
 }
 
-fn draw_droplet(port: &mut dyn Backend) {
+fn draw_droplet(port: &mut dyn TeletelReceiver) {
     send!(port, [
         Inverted(from![
             Move(19, 4),

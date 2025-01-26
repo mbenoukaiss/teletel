@@ -3,7 +3,7 @@ extern crate teletel_derive;
 #[macro_use]
 mod macros;
 
-pub mod backend;
+pub mod receiver;
 pub mod protocol;
 mod wrapper;
 

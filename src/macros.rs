@@ -2,8 +2,8 @@ pub use teletel_derive::sg;
 
 #[macro_export]
 macro_rules! send {
-    ($backend:expr, [$($code:expr),+ $(,)?]) => {
-        $($crate::protocol::ToBackend::to_backend(&$code, $backend);)+
+    ($receiver:expr, [$($code:expr),+ $(,)?]) => {
+        $($crate::protocol::ToTeletel::to_teletel(&$code, $receiver);)+
     };
 }
 
@@ -11,7 +11,7 @@ macro_rules! send {
 macro_rules! from {
     ($($code:expr),+ $(,)?) => {{
         let mut __buffer = Vec::new();
-        $($crate::protocol::ToBackend::to_backend(&$code, &mut __buffer);)+
+        $($crate::protocol::ToTeletel::to_teletel(&$code, &mut __buffer);)+
         __buffer
     }};
 }
