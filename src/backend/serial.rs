@@ -1,3 +1,4 @@
+use std::io::Write;
 use crate::backend::Backend;
 use serialport::{DataBits, Parity, SerialPort};
 use std::time::Duration;
@@ -28,6 +29,6 @@ impl SerialBackend {
 
 impl Backend for SerialBackend {
     fn send(&mut self, bytes: &[u8]) {
-        self.port.write(&bytes).expect("Write failed");
+        self.port.write_all(&bytes).expect("Write failed");
     }
 }

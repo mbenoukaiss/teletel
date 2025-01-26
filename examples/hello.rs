@@ -7,7 +7,7 @@ use teletel::{Beep, Blink, Clear, Color, Foreground, Move, Repeat};
 fn main() {
     let mut port = SerialBackend::new("/dev/ttyUSB0", BaudRate::B9600);
 
-    send!(port, [
+    send!(&mut port, [
         Clear,
         Move(9, 11),
         Foreground(Color::Yellow, Repeat('H', 3)),

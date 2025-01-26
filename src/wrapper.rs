@@ -26,6 +26,9 @@ declare!(Beep, [BEEP]);
 declare!(Blink<T: ToBackend>(pub T), |self| [ESC, BLINK, self.0, ESC, STILL]);
 declare!(Background<T: ToBackend>(pub Color, pub T), |self| [ESC, 0x50, self.0 as u8, self.1, ESC, 0x50, Color::Black as u8]);
 declare!(Foreground<T: ToBackend>(pub Color, pub T), |self| [ESC, 0x40 + self.0 as u8, self.1, ESC, 0x40 + Color::White as u8]);
+declare!(SemiGraphic<T: ToBackend>(pub T), |self| [SO, self.0, SI]);
+declare!(Inverted<T: ToBackend>(pub T), |self| [ESC, START_INVERT, self.0, ESC, STOP_INVERT]);
+declare!(Big<T: ToBackend>(pub T), |self| [ESC, DOUBLE_SIZE, self.0, ESC, NORMAL_SIZE]);
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]

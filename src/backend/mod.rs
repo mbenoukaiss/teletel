@@ -1,3 +1,5 @@
+mod buffer;
+
 #[cfg(feature = "serial")]
 mod serial;
 
