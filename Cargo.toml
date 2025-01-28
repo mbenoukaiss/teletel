@@ -16,5 +16,9 @@ name = "hello"
 required-features = ["serial"]
 
 [[example]]
-name = "lumon"
+name = "semigraphic"
+required-features = ["serial"]
+
+[[example]]
+name = "load_vdt"
 required-features = ["serial"]

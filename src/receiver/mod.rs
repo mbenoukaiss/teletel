@@ -1,4 +1,7 @@
 mod buffer;
+mod file;
+
+pub use file::FileReceiver;
 
 #[cfg(feature = "serial")]
 mod serial;

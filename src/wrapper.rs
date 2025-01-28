@@ -67,3 +67,25 @@ impl ToTeletel for Move {
         [SET_CURSOR, 0x40 + self.1, 0x40 + self.0].to_teletel(receiver);
     }
 }
+
+pub struct Videotex {
+    pub data: Vec<u8>,
+}
+
+impl Videotex {
+    pub fn from_bytes(data: Vec<u8>) -> Self {
+        Self { data }
+    }
+
+    pub fn from_path(path: &str) -> std::io::Result<Self> {
+        Ok(Self {
+            data: std::fs::read(path)?,
+        })
+    }
+}
+
+impl ToTeletel for Videotex {
+    fn to_teletel(&self, receiver: &mut dyn TeletelReceiver) {
+        self.data.to_teletel(receiver);
+    }
+}
