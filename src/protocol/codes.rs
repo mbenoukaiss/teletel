@@ -85,14 +85,51 @@ pub mod ss2 {
     pub const THREE_QUARTERS: u8 = 0x3E;
 }
 
+/// Layout codes for moving the cursor around the screen.
+///
+/// Documented on page 94 to 97.
+pub mod layout {
+    use super::*;
+
+    pub const CURSOR_LEFT: u8 = 0x08;
+    pub const CURSOR_RIGHT: u8 = 0x09;
+    pub const CURSOR_DOWN: u8 = 0x0A;
+    pub const CURSOR_UP: u8 = 0x0B;
+    pub const CR: u8 = 0x0D;
+    pub const RS: u8 = 0x1E;
+    pub const FF: u8 = 0x0C;
+    pub const US: u8 = 0x1F;
+
+    /// Fill the current line from the cursor position to the end
+    /// of the line with spaces
+    pub const CAN: u8 = 0x18;
+
+    /// Erase characters from the cursor position to the end of the screen
+    pub const CSI_J: [u8; 3] = [ESC, 0x5B, 0x4A];
+
+    /// Erase characters from the beginning of the screen to the cursor position
+    pub const CSI_1_J: [u8; 4] = [ESC, 0x5B, 0x31, 0x4A];
+
+    /// Erase the whole screen, does reset the cursor position
+    pub const CSI_2_J: [u8; 4] = [ESC, 0x5B, 0x32, 0x4A];
+
+    /// Erase characters from the cursor position to the end of the row
+    pub const CSI_K: [u8; 3] = [ESC, 0x5B, 0x4B];
+
+    /// Erase characters from the beginning of the row to the cursor position
+    pub const CSI_1_K: [u8; 4] = [ESC, 0x5B, 0x31, 0x4B];
+
+    /// Erase all characters in the current row
+    pub const CSI_2_K: [u8; 4] = [ESC, 0x5B, 0x32, 0x4B];
+}
+
 pub use c1::*;
 pub use ss2::*;
+pub use layout::*;
 
 pub const BEEP: u8 = 0x07; //p98
-pub const CLEAR: u8 = 0x0C;
 pub const SCROLL_DOWN: u8 = 0x0A; //p34
 pub const SCROLL_UP: u8 = 0x0B; //p34
-pub const SET_CURSOR: u8 = 0x1F; //p??
 
 /// Repeats a character a given number of times. The count
 /// must be between 1 and 64 or the function will panic.
@@ -104,6 +141,10 @@ pub const fn repeat(character: u8, count: u8) -> [u8; 3] {
     assert!(count <= 64);
 
     [character, 0x12, 0x40 + count - 1]
+}
+
+pub const fn to_decimal(value: u8) -> [u8; 2] {
+    [0x30 + value / 10, 0x30 + value % 10]
 }
 
 #[cfg(test)]
@@ -121,5 +162,16 @@ mod tests {
     fn test_repeat_fails() {
         assert!(std::panic::catch_unwind(|| repeat('A' as u8, 0)).is_err());
         assert!(std::panic::catch_unwind(|| repeat('A' as u8, 65)).is_err());
+    }
+
+    #[test]
+    fn test_to_decimal() {
+        assert_eq!(to_decimal(0), [0x30, 0x30]);
+        assert_eq!(to_decimal(1), [0x30, 0x31]);
+        assert_eq!(to_decimal(9), [0x30, 0x39]);
+        assert_eq!(to_decimal(10), [0x31, 0x30]);
+        assert_eq!(to_decimal(15), [0x31, 0x35]);
+        assert_eq!(to_decimal(77), [0x37, 0x37]);
+        assert_eq!(to_decimal(99), [0x39, 0x39]);
     }
 }

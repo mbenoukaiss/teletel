@@ -2,9 +2,10 @@ pub use teletel_derive::sg;
 
 #[macro_export]
 macro_rules! send {
-    ($receiver:expr, [$($code:expr),+ $(,)?]) => {
+    ($receiver:expr, [$($code:expr),+ $(,)?]) => {{
         $($crate::protocol::ToTeletel::to_teletel(&$code, $receiver);)+
-    };
+        $crate::receiver::TeletelReceiver::flush($receiver)
+    }};
 }
 
 #[macro_export]
