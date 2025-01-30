@@ -25,6 +25,10 @@ impl FileReceiver {
 }
 
 impl TeletelReceiver for FileReceiver {
+    fn read(&mut self, _buffer: &mut [u8]) -> Result<usize, Error> {
+        panic!("FileReceiver does not support reading");
+    }
+
     fn send(&mut self, bytes: &[u8]) {
         self.buffer.extend_from_slice(bytes);
     }

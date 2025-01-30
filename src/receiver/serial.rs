@@ -34,6 +34,10 @@ impl SerialReceiver {
 }
 
 impl TeletelReceiver for SerialReceiver {
+    fn read(&mut self, buffer: &mut [u8]) -> Result<usize, Error> {
+        Ok(self.port.read(buffer)?)
+    }
+
     fn send(&mut self, bytes: &[u8]) {
         self.write_buffer.extend_from_slice(bytes);
     }

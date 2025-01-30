@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate teletel;
 
-use teletel::receiver::{BaudRate, SerialReceiver};
+use teletel::receiver::{BaudRate, SerialReceiver, TeletelReceiver};
 use teletel::{Beep, Blink, Clear, Color, Foreground, SetCursor, Repeat, Error};
 
 fn main() -> Result<(), Error> {
@@ -19,6 +19,8 @@ fn main() -> Result<(), Error> {
         Blink(Repeat('!', 2)),
         Beep,
     ])?;
+
+    println!("read from keyboard : {}", String::from_utf8(port.read_until_enter()?).unwrap());
 
     Ok(())
 }
