@@ -1,7 +1,5 @@
-use std::io::Write;
+use serial2::{CharSize, FlowControl, Parity, SerialPort, Settings};
 use crate::receiver::TeletelReceiver;
-use serialport::{DataBits, Parity, SerialPort};
-use std::time::Duration;
 use crate::error::Error;
 
 pub enum BaudRate {
@@ -12,31 +10,37 @@ pub enum BaudRate {
 }
 
 pub struct SerialReceiver {
-    port: Box<dyn SerialPort>,
-    buffer: Vec<u8>,
+    port: SerialPort,
+    write_buffer: Vec<u8>,
 }
 
 impl SerialReceiver {
     pub fn new<S: AsRef<str>>(path: S, baud_rate: BaudRate) -> Result<Self, Error> {
+        let port = SerialPort::open(path.as_ref(), |mut settings: Settings| {
+            settings.set_raw();
+            settings.set_baud_rate(baud_rate as u32)?;
+            settings.set_char_size(CharSize::Bits7);
+            settings.set_parity(Parity::Even);
+            settings.set_flow_control(FlowControl::None);
+
+            Ok(settings)
+        })?;
+
         Ok(SerialReceiver {
-            port: serialport::new(path.as_ref(), baud_rate as u32)
-                .timeout(Duration::from_secs(1)) //TODO: correct value?
-                .parity(Parity::Even)
-                .data_bits(DataBits::Seven)
-                .open()?,
-            buffer: Vec::new(),
+            port,
+            write_buffer: Vec::new(),
         })
     }
 }
 
 impl TeletelReceiver for SerialReceiver {
     fn send(&mut self, bytes: &[u8]) {
-        self.buffer.extend_from_slice(bytes);
+        self.write_buffer.extend_from_slice(bytes);
     }
 
     fn flush(&mut self) -> Result<(), Error> {
-        self.port.write_all(&self.buffer)?;
-        self.buffer.clear();
+        self.port.write_all(&self.write_buffer)?;
+        self.write_buffer.clear();
 
         Ok(())
     }
