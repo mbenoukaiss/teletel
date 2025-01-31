@@ -11,17 +11,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     send!(&mut mt, [
         Clear,
         SetCursor(9, 11),
-        Foreground(Color::Yellow, Repeat('H', 3)),
-        Foreground(Color::Cyan, Repeat('E', 3)),
-        Foreground(Color::Green, Repeat('L', 3)),
-        Foreground(Color::Magenta, Repeat('L', 3)),
-        Foreground(Color::Red, Repeat('O', 3)),
+        Foreground(Color::Gray90, Repeat('H', 3)),
+        Foreground(Color::Gray80, Repeat('E', 3)),
+        Foreground(Color::Gray70, Repeat('L', 3)),
+        Foreground(Color::Gray60, Repeat('L', 3)),
+        Foreground(Color::Gray50, Repeat('O', 3)),
         " WORLD",
         Blink(Repeat('!', 2)),
         Beep,
     ])?;
 
-    println!("read from keyboard : {}", String::from_utf8(mt.read_until_enter()?)?);
+    println!("read from keyboard: {}", String::from_utf8(mt.read_until_enter()?)?);
 
     Ok(())
 }

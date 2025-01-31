@@ -33,6 +33,7 @@ declare!(SemiGraphic<T: ToMinitel>(pub T), |self| [SO, self.0, SI]);
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
+#[cfg(feature = "colors")]
 pub enum Color {
     Black = 0x0,
     Blue = 0x4,
@@ -41,6 +42,20 @@ pub enum Color {
     Green = 0x2,
     Cyan = 0x6,
     Yellow = 0x3,
+    White = 0x7,
+}
+
+#[repr(u8)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+#[cfg(not(feature = "colors"))]
+pub enum Color {
+    Black = 0x0,
+    Gray40 = 0x4,
+    Gray50 = 0x1,
+    Gray60 = 0x5,
+    Gray70 = 0x2,
+    Gray80 = 0x6,
+    Gray90 = 0x3,
     White = 0x7,
 }
 
@@ -71,6 +86,32 @@ impl ToMinitel for SetCursor {
         0x3B.to_minitel(mt);
         to_decimal(self.0).to_minitel(mt);
         0x48.to_minitel(mt);
+    }
+}
+
+pub struct MoveCursor(pub Direction, pub u8);
+
+impl ToMinitel for MoveCursor {
+    fn to_minitel(&self, mt: &mut Minitel) {
+        if self.1 == 1 {
+            match self.0 {
+                Direction::Up => CURSOR_UP,
+                Direction::Down => CURSOR_DOWN,
+                Direction::Right => CURSOR_RIGHT,
+                Direction::Left => CURSOR_LEFT,
+            }.to_minitel(mt);
+        } else {
+            let direction = match self.0 {
+                Direction::Up => 0x41,
+                Direction::Down => 0x42,
+                Direction::Right => 0x43,
+                Direction::Left => 0x44,
+            };
+
+            [ESC, 0x5B].to_minitel(mt);
+            to_decimal(self.1).to_minitel(mt);
+            direction.to_minitel(mt);
+        }
     }
 }
 
@@ -105,33 +146,6 @@ pub enum Direction {
     Down,
     Right,
     Left,
-}
-
-pub struct MoveCursor(pub Direction, pub u8);
-
-impl ToMinitel for MoveCursor {
-    fn to_minitel(&self, mt: &mut Minitel) {
-        if self.1 == 1 {
-            match self.0 {
-                Direction::Up => CURSOR_UP,
-                Direction::Down => CURSOR_DOWN,
-                Direction::Right => CURSOR_RIGHT,
-                Direction::Left => CURSOR_LEFT,
-            }
-            .to_minitel(mt);
-        } else {
-            let direction = match self.0 {
-                Direction::Up => 0x41,
-                Direction::Down => 0x42,
-                Direction::Right => 0x43,
-                Direction::Left => 0x44,
-            };
-
-            [ESC, 0x5B].to_minitel(mt);
-            to_decimal(self.1).to_minitel(mt);
-            direction.to_minitel(mt);
-        }
-    }
 }
 
 impl<F: Fn(&mut Minitel)> ToMinitel for F {

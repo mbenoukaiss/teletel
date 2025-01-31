@@ -1,7 +1,7 @@
 # Teletel
 
 It’s 1997, and the Minitel is revolutionizing the way people connect. Since its launch in 1982, this pioneering device
-has already become a global sensation, offering fast and compact ways for people to access everything : telephone 
+has already become a global sensation, offering fast and compact ways for people to access everything: telephone 
 directories, video games, real-time communication with friends, family and even... well, let’s just say it’s versatile.
 As the Minitel continues to gain market shares against the internet, it is a crucial time for developers to create 
 innovative applications that will shape the future. Enter `teletel`, a Rust library that opens up new possibilities
@@ -14,7 +14,13 @@ You will need a Minitel device and some way to communicate with it. You can eith
 to USB cable specifically for the minitel. Connecting it directly through UART to an ESP32, Arduino or anything else
 is not yet supported.
 
-Once you plug the Minitel you can use the following code to send text to it:
+First add the following to your `Cargo.toml`:
+```toml
+[dependencies]
+teletel = { version = "???", features = ["serial"] }
+```
+
+Once you plugged the Minitel you can use the following code to send text to it:
 ```rust
 #[macro_use]
 extern crate teletel;
@@ -31,8 +37,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Clear,
         SetCursor(15, 11),
         "Hello",
-        Foreground(Color::Yellow, "World"),
-        Foreground(Color::Red, Repeat('!', 3)),
+        Foreground(Color::Gray90, "World"),
+        Foreground(Color::Gray50, Repeat('!', 3)),
     ])?;
 
     Ok(())
@@ -44,3 +50,8 @@ following command, don't forget to log out and log back in after running it:
 ```bash
 sudo adduser $USER dialout
 ```
+
+## Features
+- `colors` when enabled, changes the `Color` enum variants to be the 8 colors available on the 
+ versions of Minitel that support colors instead of grayscale. **Disabled by default**
+- `serial` enables communicating with the Minitel through a USB port. **Disabled by default**

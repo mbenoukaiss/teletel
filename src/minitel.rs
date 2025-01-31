@@ -13,7 +13,7 @@ pub enum BaudRate {
 
 pub struct Minitel<'a> {
     receiver: Box<dyn TeletelReceiver + 'a>,
-    cursor: Position,
+    pub(crate) cursor: Position,
 }
 
 impl Minitel<'_> {
@@ -39,9 +39,9 @@ impl Minitel<'_> {
         })
     }
 
-    pub fn cursor_position(&self) -> &Position {
-        &self.cursor
-    }
+    // pub fn cursor_position(&self) -> &Position {
+    //     &self.cursor
+    // }
 
     #[inline(always)]
     pub fn read(&mut self, buffer: &mut [u8]) -> Result<usize, Error> {
