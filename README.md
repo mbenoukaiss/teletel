@@ -19,17 +19,19 @@ Once you plug the Minitel you can use the following code to send text to it:
 #[macro_use]
 extern crate teletel;
 
-use teletel::receiver::{BaudRate, SerialReceiver};
-use teletel::{Clear, Foreground, Color, Repeat, SetCursor, Error};
+use std::error::Error;
+use teletel::{Minitel, BaudRate};
+use teletel::functions::{Clear, Foreground, Color, Repeat, SetCursor};
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), Box<dyn Error>> {
     //change path and baudrate to match your setup
-    let mut port = SerialReceiver::new("/dev/ttyUSB0", BaudRate::B9600)?;
+    let mut port = Minitel::serial("/dev/ttyUSB0", BaudRate::B9600)?;
 
     send!(&mut port, [
         Clear,
         SetCursor(15, 11),
-        Foreground(Color::Yellow, "Hello World"),
+        "Hello",
+        Foreground(Color::Yellow, "World"),
         Foreground(Color::Red, Repeat('!', 3)),
     ])?;
 

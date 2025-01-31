@@ -2,21 +2,20 @@ pub use teletel_derive::sg;
 
 #[macro_export]
 macro_rules! send {
-    ($receiver:expr, [$($code:expr),+ $(,)?]) => {{
-        $($crate::protocol::ToTeletel::to_teletel(&$code, $receiver);)+
-        $crate::receiver::TeletelReceiver::flush($receiver)
+    ($mt:expr, [$($code:expr),+ $(,)?]) => {{
+        $($crate::protocol::ToMinitel::to_minitel(&$code, $mt);)+
+        $crate::Minitel::flush($mt)
     }};
 }
 
 #[macro_export]
-macro_rules! from {
+macro_rules! list {
     ($($code:expr),+ $(,)?) => {{
-        let mut __buffer = Vec::new();
-        $($crate::protocol::ToTeletel::to_teletel(&$code, &mut __buffer);)+
-        __buffer
+        |mt: &mut $crate::Minitel| {
+            $($crate::protocol::ToMinitel::to_minitel(&$code, mt);)+
+        }
     }};
 }
-
 
 #[cfg(test)]
 mod tests {

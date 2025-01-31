@@ -1,18 +1,19 @@
 #[macro_use]
 extern crate teletel;
 
-use teletel::receiver::{TeletelReceiver, BaudRate, SerialReceiver};
-use teletel::{Big, Clear, Inverted, SetCursor, Repeat, SemiGraphic, Error};
+use std::error::Error;
+use teletel::{BaudRate, Minitel};
+use teletel::functions::{Big, Clear, Inverted, SetCursor, Repeat, SemiGraphic};
 
 /// Displays the Lumon droplet logo from
 /// Severance on the minitel screen
-fn main() -> Result<(), Error> {
-    let mut port = SerialReceiver::new("/dev/ttyUSB0", BaudRate::B9600)?;
+fn main() -> Result<(), Box<dyn Error>> {
+    let mut mt = Minitel::serial("/dev/ttyUSB0", BaudRate::B9600)?;
 
-    draw_background(&mut port)?;
-    draw_droplet(&mut port)?;
+    draw_background(&mut mt)?;
+    draw_droplet(&mut mt)?;
 
-    send!(&mut port, [
+    send!(&mut mt, [
         SetCursor(15, 18),
         Big("Lumon"),
     ])?;
@@ -20,11 +21,11 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn draw_background(port: &mut dyn TeletelReceiver) -> Result<(), Error> {
-    send!(port, [
+fn draw_background(mt: &mut Minitel) -> Result<(), Box<dyn Error>> {
+    send!(mt, [
         Clear,
 
-        SemiGraphic(from![
+        SemiGraphic(list![
             SetCursor(10, 2),
             sg!(00/00/00),
             sg!(00/01/11),
@@ -35,7 +36,7 @@ fn draw_background(port: &mut dyn TeletelReceiver) -> Result<(), Error> {
             sg!(00/00/00),
 
             SetCursor(10, 3),
-            SemiGraphic(from![
+            SemiGraphic(list![
                 sg!(01/01/11),
                 Repeat(sg!(11/11/11), 18),
                 sg!(10/10/11),
@@ -44,14 +45,14 @@ fn draw_background(port: &mut dyn TeletelReceiver) -> Result<(), Error> {
     ])?;
 
     for i in 1..12 {
-        send!(port, [
+        send!(mt, [
             SetCursor(10, 3 + i),
             SemiGraphic(Repeat(sg!(11/11/11), 20)),
         ])?;
     }
 
-    send!(port, [
-        SemiGraphic(from![
+    send!(mt, [
+        SemiGraphic(list![
             SetCursor(10, 14),
             sg!(11/01/01),
             Repeat(sg!(11/11/11), 18),
@@ -71,10 +72,10 @@ fn draw_background(port: &mut dyn TeletelReceiver) -> Result<(), Error> {
     Ok(())
 }
 
-fn draw_droplet(port: &mut dyn TeletelReceiver) -> Result<(), Error> {
-    send!(port, [
-        Inverted(from![
-            SemiGraphic(from![
+fn draw_droplet(mt: &mut Minitel) -> Result<(), Box<dyn Error>> {
+    send!(mt, [
+        Inverted(list![
+            SemiGraphic(list![
                 SetCursor(19, 4),
                 sg!(10/10/00),
                 sg!(01/01/00),
@@ -123,5 +124,7 @@ fn draw_droplet(port: &mut dyn TeletelReceiver) -> Result<(), Error> {
                 sg!(01/11/11),
             ]),
         ]),
-    ])
+    ])?;
+
+    Ok(())
 }

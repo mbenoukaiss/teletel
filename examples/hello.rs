@@ -1,13 +1,14 @@
 #[macro_use]
 extern crate teletel;
 
-use teletel::receiver::{BaudRate, SerialReceiver, TeletelReceiver};
-use teletel::{Beep, Blink, Clear, Color, Foreground, SetCursor, Repeat, Error};
+use std::error::Error;
+use teletel::functions::{Beep, Blink, Clear, Color, Foreground, Repeat, SetCursor};
+use teletel::{BaudRate, Minitel};
 
-fn main() -> Result<(), Error> {
-    let mut port = SerialReceiver::new("/dev/ttyUSB0", BaudRate::B9600)?;
+fn main() -> Result<(), Box<dyn Error>> {
+    let mut mt = Minitel::serial("/dev/ttyUSB0", BaudRate::B9600)?;
 
-    send!(&mut port, [
+    send!(&mut mt, [
         Clear,
         SetCursor(9, 11),
         Foreground(Color::Yellow, Repeat('H', 3)),
@@ -20,7 +21,7 @@ fn main() -> Result<(), Error> {
         Beep,
     ])?;
 
-    println!("read from keyboard : {}", String::from_utf8(port.read_until_enter()?).unwrap());
+    println!("read from keyboard : {}", String::from_utf8(mt.read_until_enter()?)?);
 
     Ok(())
 }
