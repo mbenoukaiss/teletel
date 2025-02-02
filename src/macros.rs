@@ -18,6 +18,17 @@ macro_rules! list {
 }
 
 #[cfg(test)]
+#[macro_export]
+macro_rules! assert_panics {
+    ($code:expr) => {
+        assert!(std::panic::catch_unwind(|| $code).is_err());
+    };
+    ($code:block) => {
+        assert!(std::panic::catch_unwind(|| $code).is_err());
+    };
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -25,6 +36,12 @@ mod tests {
     pub fn test_empty_and_full() {
         assert_eq!(sg!(00/00/00), 0x20);
         assert_eq!(sg!(11/11/11), 0x5F);
+    }
+
+    #[test]
+    pub fn test_works_with_spaces() {
+        assert_eq!(sg!(00      / 00 /   00     ), 0x20);
+        assert_eq!(sg!(11 /     11 / 11), 0x5F);
     }
 
     #[test]

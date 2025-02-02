@@ -8,32 +8,46 @@ pub const SO: u8 = 0x0E;
 /// Deactivates the G1 character set and switch back to G0.
 pub const SI: u8 = 0x0F;
 
-/// The C1 character set which contains formatting codes like
-/// coloring, underlining, size, blinking etc. Each code must
-/// be preceded by the ESC character (0x1B) to enable C1.
+/// The C1 grid which contains formatting codes like coloring
+/// underlining, size, blinking etc. Each code must be
+/// preceded by the ESC character (0x1B) to enable C1.
 ///
 /// Documented on pages 91 and 92.
 pub mod c1 {
-    /// Activates the C1 character set. It is only temporarily
+    /// Activates the C1 grid. It is only temporarily
     /// activated for the next code that is sent and must thus
     /// be sent before each C1 character.
     pub const ESC: u8 = 0x1B;
-    pub const BLACK_CHARACTER: u8 = 0x40;
-    pub const RED_CHARACTER: u8 = 0x41;
-    pub const GREEN_CHARACTER: u8 = 0x42;
-    pub const YELLOW_CHARACTER: u8 = 0x43;
-    pub const BLUE_CHARACTER: u8 = 0x44;
-    pub const MAGENTA_CHARACTER: u8 = 0x45;
-    pub const CYAN_CHARACTER: u8 = 0x46;
-    pub const WHITE_CHARACTER: u8 = 0x47;
-    pub const BLACK_BACKGROUND: u8 = 0x50;
-    pub const RED_BACKGROUND: u8 = 0x51;
-    pub const GREEN_BACKGROUND: u8 = 0x52;
-    pub const YELLOW_BACKGROUND: u8 = 0x53;
-    pub const BLUE_BACKGROUND: u8 = 0x54;
-    pub const MAGENTA_BACKGROUND: u8 = 0x55;
-    pub const CYAN_BACKGROUND: u8 = 0x56;
-    pub const WHITE_BACKGROUND: u8 = 0x57;
+
+    pub const FOREGROUND: u8 = 0x40;
+    pub const BACKGROUND: u8 = 0x50;
+
+    pub const BLACK: u8 = 0x00;
+    pub const RED: u8 = 0x01;
+    pub const GREEN: u8 = 0x02;
+    pub const YELLOW: u8 = 0x03;
+    pub const BLUE: u8 = 0x04;
+    pub const MAGENTA: u8 = 0x05;
+    pub const CYAN: u8 = 0x06;
+    pub const WHITE: u8 = 0x07;
+
+    pub const BLACK_FOREGROUND: u8 = FOREGROUND + BLACK;
+    pub const RED_FOREGROUND: u8 = FOREGROUND + RED;
+    pub const GREEN_FOREGROUND: u8 = FOREGROUND + GREEN;
+    pub const YELLOW_FOREGROUND: u8 = FOREGROUND + YELLOW;
+    pub const BLUE_FOREGROUND: u8 = FOREGROUND + BLUE;
+    pub const MAGENTA_FOREGROUND: u8 = FOREGROUND + MAGENTA;
+    pub const CYAN_FOREGROUND: u8 = FOREGROUND + CYAN;
+    pub const WHITE_FOREGROUND: u8 = FOREGROUND + WHITE;
+    pub const BLACK_BACKGROUND: u8 = BACKGROUND + BLACK;
+    pub const RED_BACKGROUND: u8 = BACKGROUND + RED;
+    pub const GREEN_BACKGROUND: u8 = BACKGROUND + GREEN;
+    pub const YELLOW_BACKGROUND: u8 = BACKGROUND + YELLOW;
+    pub const BLUE_BACKGROUND: u8 = BACKGROUND + BLUE;
+    pub const MAGENTA_BACKGROUND: u8 = BACKGROUND + MAGENTA;
+    pub const CYAN_BACKGROUND: u8 = BACKGROUND + CYAN;
+    pub const WHITE_BACKGROUND: u8 = BACKGROUND + WHITE;
+
     pub const BLINK: u8 = 0x48;
     pub const STILL: u8 = 0x49;
     pub const START_INVERT: u8 = 0x5D;
@@ -54,7 +68,7 @@ pub mod c1 {
 ///
 /// Documented on pages 88 to 90.
 /// Table with the whole character set on pages 103 or 104
-/// depending on the display system.
+/// depending on the display component (VGP2/VGP5).
 pub mod ss2 {
     /// Activates the G2 character set. It is only temporarily
     /// activated for the next character that is sent and must thus
@@ -104,32 +118,50 @@ pub mod layout {
     /// of the line with spaces
     pub const CAN: u8 = 0x18;
 
+    pub const CSI: u8 = 0x5B;
+
     /// Erase characters from the cursor position to the end of the screen
-    pub const CSI_J: [u8; 3] = [ESC, 0x5B, 0x4A];
+    pub const CSI_J: [u8; 3] = [ESC, CSI, 0x4A];
 
     /// Erase characters from the beginning of the screen to the cursor position
-    pub const CSI_1_J: [u8; 4] = [ESC, 0x5B, 0x31, 0x4A];
+    pub const CSI_1_J: [u8; 4] = [ESC, CSI, 0x31, 0x4A];
 
     /// Erase the whole screen, does reset the cursor position
-    pub const CSI_2_J: [u8; 4] = [ESC, 0x5B, 0x32, 0x4A];
+    pub const CSI_2_J: [u8; 4] = [ESC, CSI, 0x32, 0x4A];
 
     /// Erase characters from the cursor position to the end of the row
-    pub const CSI_K: [u8; 3] = [ESC, 0x5B, 0x4B];
+    pub const CSI_K: [u8; 3] = [ESC, CSI, 0x4B];
 
     /// Erase characters from the beginning of the row to the cursor position
-    pub const CSI_1_K: [u8; 4] = [ESC, 0x5B, 0x31, 0x4B];
+    pub const CSI_1_K: [u8; 4] = [ESC, CSI, 0x31, 0x4B];
 
     /// Erase all characters in the current row
-    pub const CSI_2_K: [u8; 4] = [ESC, 0x5B, 0x32, 0x4B];
+    pub const CSI_2_K: [u8; 4] = [ESC, CSI, 0x32, 0x4B];
+}
+
+pub mod proto {
+    pub const PRO1: u8 = 0x39;
+    pub const PRO2: u8 = 0x3A;
+    pub const PRO3: u8 = 0x3B;
+    pub const START: u8 = 0x69;
+    pub const STOP: u8 = 0x6A;
+    pub const SCROLL: u8 = 0x43; //p143
+    pub const PROCEDURE: u8 = 0x44; //p143
+    pub const CASE: u8 = 0x45; //p143
+    pub const STATE_REQUEST: u8 = 0x72; //p143
+    pub const STATE_RESPONSE: u8 = 0x73; //p143
 }
 
 pub use c1::*;
 pub use ss2::*;
 pub use layout::*;
+pub use proto::*;
 
 pub const BEEP: u8 = 0x07; //p98
 pub const SCROLL_DOWN: u8 = 0x0A; //p34
 pub const SCROLL_UP: u8 = 0x0B; //p34
+pub const CURSOR_ON: u8 = 0x11; //p99
+pub const CURSOR_OFF: u8 = 0x14; //p99
 
 /// Repeats a character a given number of times. The count
 /// must be between 1 and 64 or the function will panic.

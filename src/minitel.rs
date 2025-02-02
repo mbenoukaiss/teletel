@@ -13,21 +13,21 @@ pub enum BaudRate {
 
 pub struct Minitel<'a> {
     receiver: Box<dyn TeletelReceiver + 'a>,
-    pub(crate) cursor: Position,
+    _cursor: Position,
 }
 
 impl Minitel<'_> {
     pub fn buffer() -> Self {
         Self {
             receiver: Box::new(Vec::new()),
-            cursor: Position::new(0, 1),
+            _cursor: Position::new(0, 1),
         }
     }
 
     pub fn file(path: &str) -> Result<Self, Error> {
         Ok(Self {
             receiver: Box::new(FileReceiver::new(path)?),
-            cursor: Position::new(0, 1),
+            _cursor: Position::new(0, 1),
         })
     }
 
@@ -35,13 +35,9 @@ impl Minitel<'_> {
     pub fn serial<S: AsRef<str>>(path: S, baud_rate: BaudRate) -> Result<Self, Error> {
         Ok(Self {
             receiver: Box::new(SerialReceiver::new(path, baud_rate)?),
-            cursor: Position::new(0, 1),
+            _cursor: Position::new(0, 1),
         })
     }
-
-    // pub fn cursor_position(&self) -> &Position {
-    //     &self.cursor
-    // }
 
     #[inline(always)]
     pub fn read(&mut self, buffer: &mut [u8]) -> Result<usize, Error> {
@@ -107,7 +103,7 @@ impl<'a> From<&'a mut Buffer> for Minitel<'a> {
     fn from(value: &'a mut Buffer) -> Self {
         Self {
             receiver: Box::new(value),
-            cursor: Position::new(0, 1),
+            _cursor: Position::new(0, 1),
         }
     }
 }

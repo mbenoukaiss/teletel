@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate teletel_derive;
 
 #[macro_use]

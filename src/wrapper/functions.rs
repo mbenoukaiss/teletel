@@ -25,8 +25,8 @@ declare!(Clear, [FF]);
 declare!(ClearRow, [CSI_2_K]);
 declare!(Beep, [BEEP]);
 declare!(Blink<T: ToMinitel>(pub T), |self| [ESC, BLINK, self.0, ESC, STILL]);
-declare!(Background<T: ToMinitel>(pub Color, pub T), |self| [ESC, 0x50, self.0 as u8, self.1, ESC, 0x50, Color::Black as u8]);
-declare!(Foreground<T: ToMinitel>(pub Color, pub T), |self| [ESC, 0x40 + self.0 as u8, self.1, ESC, 0x40 + Color::White as u8]);
+declare!(Background<T: ToMinitel>(pub Color, pub T), |self| [ESC, BACKGROUND + self.0 as u8, self.1, ESC, BACKGROUND, Color::Black as u8]);
+declare!(Foreground<T: ToMinitel>(pub Color, pub T), |self| [ESC, FOREGROUND + self.0 as u8, self.1, ESC, FOREGROUND + Color::White as u8]);
 declare!(Inverted<T: ToMinitel>(pub T), |self| [ESC, START_INVERT, self.0, ESC, STOP_INVERT]);
 declare!(Big<T: ToMinitel>(pub T), |self| [ESC, DOUBLE_SIZE, self.0, ESC, NORMAL_SIZE]);
 declare!(SemiGraphic<T: ToMinitel>(pub T), |self| [SO, self.0, SI]);
@@ -35,28 +35,28 @@ declare!(SemiGraphic<T: ToMinitel>(pub T), |self| [SO, self.0, SI]);
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 #[cfg(feature = "colors")]
 pub enum Color {
-    Black = 0x0,
-    Blue = 0x4,
-    Red = 0x1,
-    Magenta = 0x5,
-    Green = 0x2,
-    Cyan = 0x6,
-    Yellow = 0x3,
-    White = 0x7,
+    Black = BLACK,
+    Blue = BLUE,
+    Red = RED,
+    Magenta = MAGENTA,
+    Green = GREEN,
+    Cyan = CYAN,
+    Yellow = YELLOW,
+    White = WHITE,
 }
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 #[cfg(not(feature = "colors"))]
 pub enum Color {
-    Black = 0x0,
-    Gray40 = 0x4,
-    Gray50 = 0x1,
-    Gray60 = 0x5,
-    Gray70 = 0x2,
-    Gray80 = 0x6,
-    Gray90 = 0x3,
-    White = 0x7,
+    Black = BLACK,
+    Gray40 = BLUE,
+    Gray50 = RED,
+    Gray60 = MAGENTA,
+    Gray70 = GREEN,
+    Gray80 = CYAN,
+    Gray90 = YELLOW,
+    White = WHITE,
 }
 
 pub struct Repeat<T: ToMinitel>(pub T, pub u8);

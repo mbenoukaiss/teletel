@@ -25,27 +25,28 @@ use std::str::FromStr;
 /// /// XX
 /// /// X-
 /// /// --
-/// let code = sq!(11/10/00);
+/// let code = sg!(11/10/00);
 ///
 /// /// --
 /// /// --
 /// /// --
-/// let code = sq!(00/00/00);
+/// let code = sg!(00/00/00);
 ///
 /// /// XX
 /// /// XX
 /// /// XX
-/// let code = sq!(11/11/11);
+/// let code = sg!(11/11/11);
 ///
 /// /// X-
 /// /// X-
 /// /// X-
-/// let code = sq!(10/10/10);
+/// let code = sg!(10/10/10);
 /// ```
 #[proc_macro]
 pub fn sg(input: TokenStream) -> TokenStream {
     let format = Regex::new(r"^[01]{2}/[01]{2}/[01]{2}$").unwrap();
-    let input = input.to_string();
+    let mut input = input.to_string();
+    input.retain(|c| !c.is_whitespace());
 
     if !format.is_match(&input) {
         panic!("Invalid semi-graphic character format, expected `[01]{{2}}/[01]{{2}}/[01]{{2}}` got `{}`", input)

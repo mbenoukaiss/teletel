@@ -10,7 +10,7 @@ pub struct SerialReceiver {
 
 impl SerialReceiver {
     pub fn new<S: AsRef<str>>(path: S, baud_rate: BaudRate) -> Result<Self, Error> {
-        let mut port = SerialPort::open(path.as_ref(), |mut settings: Settings| {
+        let port = SerialPort::open(path.as_ref(), |mut settings: Settings| {
             settings.set_raw();
             settings.set_baud_rate(baud_rate as u32)?;
             settings.set_char_size(CharSize::Bits7);
