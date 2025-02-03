@@ -214,7 +214,7 @@ impl Parsable for SpecialCharacter {
                 CEDILLA => SpecialCharacter::Cedilla(None),
                 LOWER_OE => SpecialCharacter::LowerOE,
                 UPPER_OE => SpecialCharacter::UpperOE,
-                ESZETT => SpecialCharacter::Eszett,
+                ESZETT if ctx.display_component == DisplayComponent::VGP5 => SpecialCharacter::Eszett,
                 POUND => SpecialCharacter::Pound,
                 DOLLAR => SpecialCharacter::Dollar,
                 NUMBER_SIGN => SpecialCharacter::NumberSign,
@@ -222,7 +222,7 @@ impl Parsable for SpecialCharacter {
                 ARROW_UP => SpecialCharacter::ArrowUp,
                 ARROW_RIGHT => SpecialCharacter::ArrowRight,
                 ARROW_DOWN => SpecialCharacter::ArrowDown,
-                PARAGRAPH => SpecialCharacter::Paragraph,
+                PARAGRAPH if ctx.display_component == DisplayComponent::VGP5 => SpecialCharacter::Paragraph,
                 DEGREE => SpecialCharacter::Degree,
                 PLUS_OR_MINUS => SpecialCharacter::PlusOrMinus,
                 OBELUS => SpecialCharacter::Obelus,
@@ -276,7 +276,7 @@ pub enum Csi {
     MoveDown(u8),
     MoveRight(u8),
     MoveLeft(u8),
-    IncompleteSetCursor(u8, u8),
+    IncompleteSetCursor(Option<u8>, Option<u8>),
     SetCursor(u8, u8),
 }
 
@@ -304,18 +304,18 @@ impl Parsable for Csi {
             }
             Csi::Quantified(value) => match byte {
                 0x30..=0x39 => Csi::Quantified(*value * 10 + (byte - 0x30)),
-                0x3B => Csi::IncompleteSetCursor(0, *value),
+                0x3B => Csi::IncompleteSetCursor(None, Some(*value)),
                 0x41 => Csi::MoveUp(*value),
                 0x42 => Csi::MoveDown(*value),
                 0x43 => Csi::MoveRight(*value),
                 0x44 => Csi::MoveLeft(*value),
                 _ => panic!("Unsupported or invalid byte {:#04X} for quantified CSI sequence", byte),
             }
-            Csi::IncompleteSetCursor(x, y) => match byte {
-                0x30..=0x39 => Csi::IncompleteSetCursor(*x * 10 + (byte - 0x30), *y),
-                0x48 => Csi::SetCursor(*x, *y),
-                _ => panic!("Invalid byte {:#04X} for incomplete set cursor sequence", byte),
-            }
+            Csi::IncompleteSetCursor(x, Some(y)) if (0x30..=0x39).contains(&byte) => Csi::IncompleteSetCursor(
+                Some(x.unwrap_or(0) * 10 + (byte - 0x30)),
+                Some(*y)
+            ),
+            Csi::IncompleteSetCursor(Some(x), Some(y)) if byte == 0x48 => Csi::SetCursor(*x, *y), //TODO: check for out of bounds
 
             //TODO: implement other CSI sequences
             _ => panic!("Unsupported or invalid byte {:#04X} for sequence {:?}", byte, self),
@@ -405,6 +405,14 @@ impl Parsable for EscapedSequence {
 }
 
 #[derive(Eq, PartialEq, Debug)]
+pub enum Direction {
+    Up,
+    Down,
+    Right,
+    Left,
+}
+
+#[derive(Eq, PartialEq, Debug)]
 pub enum Sequence {
     Incomplete,
     EscapedSequence(EscapedSequence),
@@ -412,6 +420,9 @@ pub enum Sequence {
     SpecialCharacter(SpecialCharacter),
     SemiGraphicCharacter(SemiGraphicCharacter),
     SimpleCharacter(SimpleCharacter),
+    MoveCursor(Direction),
+    RecordSeparator,
+    ClearScreen,
 }
 
 impl Parsable for Sequence {
@@ -436,6 +447,18 @@ impl Parsable for Sequence {
                     Sequence::SemiGraphicCharacter(SemiGraphicCharacter::new(ctx, byte))
                 } else if SimpleCharacter::supports(ctx, byte) {
                     Sequence::SimpleCharacter(SimpleCharacter::new(ctx, byte))
+                } else if byte >= CURSOR_LEFT && byte <= CURSOR_UP {
+                    match byte {
+                        CURSOR_LEFT => Sequence::MoveCursor(Direction::Left),
+                        CURSOR_RIGHT => Sequence::MoveCursor(Direction::Right),
+                        CURSOR_DOWN => Sequence::MoveCursor(Direction::Down),
+                        CURSOR_UP => Sequence::MoveCursor(Direction::Up),
+                        _ => unreachable!(),
+                    }
+                } else if byte == RS {
+                    Sequence::RecordSeparator
+                } else if byte == FF {
+                    Sequence::ClearScreen
                 } else {
                     panic!("Unsupported or invalid sequence starting with {:#04X}", byte)
                 }
@@ -445,6 +468,7 @@ impl Parsable for Sequence {
             Sequence::SpecialCharacter(special_character) => Sequence::SpecialCharacter(special_character.consume(ctx, byte)),
             Sequence::SemiGraphicCharacter(semi_graphic_character) => Sequence::SemiGraphicCharacter(semi_graphic_character.consume(ctx, byte)),
             Sequence::SimpleCharacter(simple_character) => Sequence::SimpleCharacter(simple_character.consume(ctx, byte)),
+            _ => panic!("Sequence {:?} does not support additional bytes ({:#04X})", self, byte),
         }
     }
 
@@ -456,6 +480,7 @@ impl Parsable for Sequence {
             Sequence::SpecialCharacter(special_character) => special_character.is_complete(),
             Sequence::SemiGraphicCharacter(semi_graphic_character) => semi_graphic_character.is_complete(),
             Sequence::SimpleCharacter(simple_character) => simple_character.is_complete(),
+            _ => true,
         }
     }
 }
@@ -504,6 +529,9 @@ mod tests {
         assert_eq!(CharacterSet::new(&ctx, 0x0F), CharacterSet::G0);
         assert_eq!(CharacterSet::new(&ctx, 0x0E), CharacterSet::G1);
 
+        assert!(CharacterSet::G0.is_complete());
+        assert!(CharacterSet::G1.is_complete());
+
         assert_panics!(CharacterSet::new(&ctx, SI).consume(&ctx, 0x00));
         assert_panics!(CharacterSet::new(&ctx, SI).consume(&ctx, 0x0E));
         assert_panics!(CharacterSet::new(&ctx, SI).consume(&ctx, 0x00));
@@ -529,6 +557,12 @@ mod tests {
         assert!(SimpleCharacter::supports(&ctx, 0x20));
         assert!(SimpleCharacter::supports(&ctx, 0x7F));
 
+        assert!(SimpleCharacter::new(&ctx, 0x20).is_complete());
+        assert!(SimpleCharacter::new(&ctx, 0x7F).is_complete());
+    }
+
+    #[test]
+    fn test_simple_character_wrong_set() {
         let mut ctx = Context::new(DisplayComponent::VGP2);
         ctx.character_set = CharacterSet::G1;
 
@@ -541,5 +575,242 @@ mod tests {
         assert_panics!(SimpleCharacter::new(&ctx, 0x3F));
         assert_panics!(SimpleCharacter::new(&ctx, 0x4A));
         assert_panics!(SimpleCharacter::new(&ctx, 0x60));
+    }
+
+    #[test]
+    fn test_semigraphic_character() {
+        let mut ctx = Context::new(DisplayComponent::VGP2);
+        ctx.character_set = CharacterSet::G1;
+
+        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x20), SemiGraphicCharacter(0x20));
+        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x3F), SemiGraphicCharacter(0x3F));
+        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x60), SemiGraphicCharacter(0x60));
+        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x7F), SemiGraphicCharacter(0x7F));
+
+        assert!(!SemiGraphicCharacter::supports(&ctx, 0x00));
+        assert!(!SemiGraphicCharacter::supports(&ctx, 0x1F));
+        assert!(!SemiGraphicCharacter::supports(&ctx, 0x40));
+        assert!(!SemiGraphicCharacter::supports(&ctx, 0x5F));
+        assert!(SemiGraphicCharacter::supports(&ctx, 0x60));
+        assert!(SemiGraphicCharacter::supports(&ctx, 0x7F));
+
+        assert!(SemiGraphicCharacter::new(&ctx, 0x20).is_complete());
+        assert!(SemiGraphicCharacter::new(&ctx, 0x7F).is_complete());
+    }
+
+    #[test]
+    fn test_semigraphic_character_wrong_set() {
+        let mut ctx = Context::new(DisplayComponent::VGP2);
+        ctx.character_set = CharacterSet::G0;
+
+        assert!(!SemiGraphicCharacter::supports(&ctx, 0x00));
+        assert!(!SemiGraphicCharacter::supports(&ctx, 0x1F));
+        assert!(!SemiGraphicCharacter::supports(&ctx, 0x45));
+        assert!(!SemiGraphicCharacter::supports(&ctx, 0x5F));
+        assert!(!SemiGraphicCharacter::supports(&ctx, 0x20));
+        assert!(!SemiGraphicCharacter::supports(&ctx, 0x3F));
+
+        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x20));
+        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x3F));
+        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x45));
+        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x5F));
+        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x60));
+        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x7F));
+    }
+
+    #[test]
+    fn test_special_character() {
+        let ctx = Context::new(DisplayComponent::VGP2);
+
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19), SpecialCharacter::Incomplete);
+
+        assert!(SpecialCharacter::supports(&ctx, 0x19));
+        assert!(!SpecialCharacter::supports(&ctx, 0x1B));
+        assert!(!SpecialCharacter::supports(&ctx, 0x00));
+        assert!(!SpecialCharacter::supports(&ctx, 0x1F));
+        assert!(!SpecialCharacter::supports(&ctx, 0x7F));
+
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19), SpecialCharacter::Incomplete);
+
+        assert_panics!(SpecialCharacter::new(&ctx, 0x00));
+        assert_panics!(SpecialCharacter::new(&ctx, 0x1B));
+        assert_panics!(SpecialCharacter::new(&ctx, 0x1F));
+
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, GRAVE), SpecialCharacter::Grave(None));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ACUTE), SpecialCharacter::Acute(None));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, CIRCUMFLEX), SpecialCharacter::Circumflex(None));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, DIAERESIS), SpecialCharacter::Diaeresis(None));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, CEDILLA), SpecialCharacter::Cedilla(None));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, LOWER_OE), SpecialCharacter::LowerOE);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, UPPER_OE), SpecialCharacter::UpperOE);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, POUND), SpecialCharacter::Pound);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, DOLLAR), SpecialCharacter::Dollar);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, NUMBER_SIGN), SpecialCharacter::NumberSign);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ARROW_LEFT), SpecialCharacter::ArrowLeft);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ARROW_UP), SpecialCharacter::ArrowUp);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ARROW_RIGHT), SpecialCharacter::ArrowRight);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ARROW_DOWN), SpecialCharacter::ArrowDown);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, DEGREE), SpecialCharacter::Degree);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, PLUS_OR_MINUS), SpecialCharacter::PlusOrMinus);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, OBELUS), SpecialCharacter::Obelus);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ONE_QUARTER), SpecialCharacter::OneQuarter);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ONE_HALF), SpecialCharacter::OneHalf);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, THREE_QUARTERS), SpecialCharacter::ThreeQuarters);
+
+        assert!(!SpecialCharacter::Grave(None).is_complete());
+        assert!(!SpecialCharacter::Acute(None).is_complete());
+        assert!(!SpecialCharacter::Circumflex(None).is_complete());
+        assert!(!SpecialCharacter::Diaeresis(None).is_complete());
+        assert!(!SpecialCharacter::Cedilla(None).is_complete());
+        assert!(SpecialCharacter::LowerOE.is_complete());
+        assert!(SpecialCharacter::ThreeQuarters.is_complete());
+    }
+
+    #[test]
+    fn test_special_character_vgp2_specific() {
+        let ctx = Context::new(DisplayComponent::VGP2);
+        assert_eq!(SpecialCharacter::Grave(None).consume(&ctx, 'a' as u8), SpecialCharacter::Grave(Some('a' as u8)));
+        assert_eq!(SpecialCharacter::Acute(None).consume(&ctx, 'e' as u8), SpecialCharacter::Acute(Some('e' as u8)));
+        assert_eq!(SpecialCharacter::Circumflex(None).consume(&ctx, 'o' as u8), SpecialCharacter::Circumflex(Some('o' as u8)));
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'i' as u8), SpecialCharacter::Diaeresis(Some('i' as u8)));
+        assert_eq!(SpecialCharacter::Cedilla(None).consume(&ctx, 'c' as u8), SpecialCharacter::Cedilla(Some('c' as u8)));
+
+        assert_panics!(SpecialCharacter::Acute(None).consume(&ctx, 'a' as u8));
+        assert_panics!(SpecialCharacter::Acute(None).consume(&ctx, 'o' as u8));
+        assert_panics!(SpecialCharacter::Grave(None).consume(&ctx, 'c' as u8));
+        assert_panics!(SpecialCharacter::Cedilla(None).consume(&ctx, 'i' as u8));
+        assert_panics!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'a' as u8));
+        assert_panics!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'o' as u8));
+        assert_panics!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'u' as u8));
+        assert_panics!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ESZETT));
+        assert_panics!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, PARAGRAPH));
+    }
+
+    #[test]
+    fn test_special_character_vgp5_specific() {
+        let ctx = Context::new(DisplayComponent::VGP5);
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'a' as u8), SpecialCharacter::Diaeresis(Some('a' as u8)));
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'o' as u8), SpecialCharacter::Diaeresis(Some('o' as u8)));
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'u' as u8), SpecialCharacter::Diaeresis(Some('u' as u8)));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ESZETT), SpecialCharacter::Eszett);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, PARAGRAPH), SpecialCharacter::Paragraph);
+    }
+
+    #[test]
+    fn test_csi() {
+        let ctx = Context::new(DisplayComponent::VGP2);
+
+        assert_eq!(Csi::new(&ctx, 0x5B), Csi::Incomplete);
+
+        assert!(Csi::supports(&ctx, 0x5B));
+        assert!(!Csi::supports(&ctx, 0x00));
+        assert!(!Csi::supports(&ctx, 0x1F));
+
+        assert!(!Csi::new(&ctx, 0x5B).is_complete());
+
+        assert_panics!(Csi::new(&ctx, 0x00));
+        assert_panics!(Csi::new(&ctx, 0x1F));
+
+        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x00));
+        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x11));
+        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x7F));
+    }
+
+    #[test]
+    fn test_csi_move_cursor() {
+        let ctx = Context::new(DisplayComponent::VGP2);
+
+        let move_left_29 = Csi::new(&ctx, 0x5B)
+            .consume(&ctx, 0x32)
+            .consume(&ctx, 0x39)
+            .consume(&ctx, 0x44);
+
+        assert_eq!(move_left_29, Csi::MoveLeft(29));
+        assert!(move_left_29.is_complete());
+
+        let move_right_11 = Csi::new(&ctx, 0x5B)
+            .consume(&ctx, 0x31)
+            .consume(&ctx, 0x31)
+            .consume(&ctx, 0x43);
+
+        assert_eq!(move_right_11, Csi::MoveRight(11));
+        assert!(move_right_11.is_complete());
+
+        let move_up_7 = Csi::new(&ctx, 0x5B)
+            .consume(&ctx, 0x37)
+            .consume(&ctx, 0x41);
+
+        assert_eq!(move_up_7, Csi::MoveUp(7));
+        assert!(move_up_7.is_complete());
+
+        let move_down_3 = Csi::new(&ctx, 0x5B)
+            .consume(&ctx, 0x30)
+            .consume(&ctx, 0x33)
+            .consume(&ctx, 0x42);
+
+        assert_eq!(move_down_3, Csi::MoveDown(3));
+        assert!(move_down_3.is_complete());
+
+        let move_right_1 = Csi::new(&ctx, 0x5B)
+            .consume(&ctx, 0x31)
+            .consume(&ctx, 0x43);
+
+        assert_eq!(move_right_1, Csi::MoveRight(1));
+        assert!(move_right_1.is_complete());
+
+        let move_left_0 = Csi::new(&ctx, 0x5B)
+            .consume(&ctx, 0x30)
+            .consume(&ctx, 0x44);
+
+        assert_eq!(move_left_0, Csi::MoveLeft(0));
+        assert!(move_left_0.is_complete());
+
+        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x44));
+        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x41));
+    }
+
+    #[test]
+    fn test_csi_set_cursor() {
+        let ctx = Context::new(DisplayComponent::VGP2);
+
+        let set_cursor_0_1 = Csi::new(&ctx, 0x5B)
+            .consume(&ctx, 0x31)
+            .consume(&ctx, 0x3B)
+            .consume(&ctx, 0x30)
+            .consume(&ctx, 0x48);
+
+        assert_eq!(set_cursor_0_1, Csi::SetCursor(0, 1));
+        assert!(set_cursor_0_1.is_complete());
+
+        let set_cursor_1_2 = Csi::new(&ctx, 0x5B)
+            .consume(&ctx, 0x32)
+            .consume(&ctx, 0x3B)
+            .consume(&ctx, 0x31)
+            .consume(&ctx, 0x48);
+
+        assert_eq!(set_cursor_1_2, Csi::SetCursor(1, 2));
+        assert!(set_cursor_1_2.is_complete());
+
+        let set_cursor_34_13 = Csi::new(&ctx, 0x5B)
+            .consume(&ctx, 0x31)
+            .consume(&ctx, 0x33)
+            .consume(&ctx, 0x3B)
+            .consume(&ctx, 0x33)
+            .consume(&ctx, 0x34)
+            .consume(&ctx, 0x48);
+
+        assert_eq!(set_cursor_34_13, Csi::SetCursor(34, 13));
+        assert!(set_cursor_34_13.is_complete());
+    }
+
+    #[test]
+    fn test_invalid_set_cursor() {
+        let ctx = Context::new(DisplayComponent::VGP2);
+
+        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x31).consume(&ctx, 0x3B).consume(&ctx, 0x48));
+        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x3F));
+        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x31).consume(&ctx, 0x3B).consume(&ctx, 0x3B));
+        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x31).consume(&ctx, 0x3B).consume(&ctx, 0x30).consume(&ctx, 0x3B));
+        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x31).consume(&ctx, 0x3B).consume(&ctx, 0x30).consume(&ctx, 0x48).consume(&ctx, 0x48));
     }
 }

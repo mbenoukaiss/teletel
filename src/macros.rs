@@ -20,11 +20,35 @@ macro_rules! list {
 #[cfg(test)]
 #[macro_export]
 macro_rules! assert_panics {
+    (|| $code:expr) => {
+        assert!(std::panic::catch_unwind(|| $code).is_err());
+    };
     ($code:expr) => {
         assert!(std::panic::catch_unwind(|| $code).is_err());
     };
     ($code:block) => {
         assert!(std::panic::catch_unwind(|| $code).is_err());
+    };
+}
+
+#[cfg(test)]
+#[macro_export]
+macro_rules! assert_times_out {
+    ($d:expr, $code:expr) => {
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let handle = std::thread::spawn(move || {
+            $code();
+
+            done_tx.send(()).expect("Unable to send completion signal");
+        });
+
+        match done_rx.recv_timeout($d) {
+            Ok(_) => {
+                handle.join().expect("Thread panicked");
+                panic!("Thread did not time out");
+            },
+            Err(_) => (),
+        }
     };
 }
 

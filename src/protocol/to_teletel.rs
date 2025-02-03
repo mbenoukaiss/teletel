@@ -65,13 +65,20 @@ impl<const SIZE: usize> ToMinitel for [u8; SIZE] {
     }
 }
 
+impl<F: Fn(&mut Minitel)> ToMinitel for F {
+    #[inline(always)]
+    fn to_minitel(&self, mt: &mut Minitel) {
+        self(mt);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::receiver::Buffer;
     use super::*;
 
     #[test]
-    fn test_tomt() {
+    fn test_to_minitel() {
         let mut data = Buffer::new();
         {
             let mut mt = Minitel::from(&mut data);
@@ -79,17 +86,19 @@ mod tests {
             0x01.to_minitel(&mut mt);
             'A'.to_minitel(&mut mt);
             [0x02, 0x03].to_minitel(&mut mt);
+            vec![0x02, 0x03].to_minitel(&mut mt);
             (&[0x02, 0x03]).to_minitel(&mut mt);
             "bonjour".to_minitel(&mut mt);
         }
 
-        assert_eq!(
-            data,
-            [
-                0x01, 'A' as u8, 0x02, 0x03, 0x02, 0x03, 'b' as u8, 'o' as u8, 'n' as u8,
-                'j' as u8, 'o' as u8, 'u' as u8, 'r' as u8,
-            ],
-        );
+        assert_eq!(data, [
+            0x01,
+            'A' as u8,
+            0x02, 0x03,
+            0x02, 0x03,
+            0x02, 0x03,
+            'b' as u8, 'o' as u8, 'n' as u8,'j' as u8, 'o' as u8, 'u' as u8, 'r' as u8,
+        ]);
     }
 
     #[test]
@@ -165,5 +174,20 @@ mod tests {
         }
 
         assert_eq!(data, "AAAEEEEIIOOUUUC".as_bytes());
+    }
+
+    #[test]
+    fn test_closure() {
+        let mut data = Buffer::new();
+        {
+            let mut mt = Minitel::from(&mut data);
+            (|mt: &mut Minitel| {
+                'A'.to_minitel(mt);
+                'B'.to_minitel(mt);
+                'C'.to_minitel(mt);
+            }).to_minitel(&mut mt);
+        }
+
+        assert_eq!(data, ['A' as u8, 'B' as u8, 'C' as u8]);
     }
 }

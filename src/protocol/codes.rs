@@ -176,6 +176,8 @@ pub const fn repeat(character: u8, count: u8) -> [u8; 3] {
 }
 
 pub const fn to_decimal(value: u8) -> [u8; 2] {
+    assert!(value <= 99);
+
     [0x30 + value / 10, 0x30 + value % 10]
 }
 
@@ -192,8 +194,8 @@ mod tests {
 
     #[test]
     fn test_repeat_fails() {
-        assert!(std::panic::catch_unwind(|| repeat('A' as u8, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| repeat('A' as u8, 65)).is_err());
+        assert_panics!(repeat('A' as u8, 0));
+        assert_panics!(repeat('A' as u8, 65));
     }
 
     #[test]
@@ -205,5 +207,11 @@ mod tests {
         assert_eq!(to_decimal(15), [0x31, 0x35]);
         assert_eq!(to_decimal(77), [0x37, 0x37]);
         assert_eq!(to_decimal(99), [0x39, 0x39]);
+    }
+
+    #[test]
+    fn test_to_decimal_fails() {
+        assert_panics!(to_decimal(100));
+        assert_panics!(to_decimal(255));
     }
 }

@@ -1,4 +1,4 @@
-use crate::receiver::{Buffer, FileReceiver, TeletelReceiver};
+use crate::receiver::{FileReceiver, TeletelReceiver};
 use crate::Error;
 
 #[cfg(feature = "serial")]
@@ -13,21 +13,18 @@ pub enum BaudRate {
 
 pub struct Minitel<'a> {
     receiver: Box<dyn TeletelReceiver + 'a>,
-    _cursor: Position,
 }
 
 impl Minitel<'_> {
     pub fn buffer() -> Self {
         Self {
             receiver: Box::new(Vec::new()),
-            _cursor: Position::new(0, 1),
         }
     }
 
     pub fn file(path: &str) -> Result<Self, Error> {
         Ok(Self {
             receiver: Box::new(FileReceiver::new(path)?),
-            _cursor: Position::new(0, 1),
         })
     }
 
@@ -35,7 +32,6 @@ impl Minitel<'_> {
     pub fn serial<S: AsRef<str>>(path: S, baud_rate: BaudRate) -> Result<Self, Error> {
         Ok(Self {
             receiver: Box::new(SerialReceiver::new(path, baud_rate)?),
-            _cursor: Position::new(0, 1),
         })
     }
 
@@ -99,11 +95,10 @@ impl Minitel<'_> {
     }
 }
 
-impl<'a> From<&'a mut Buffer> for Minitel<'a> {
-    fn from(value: &'a mut Buffer) -> Self {
+impl<'a, T: TeletelReceiver + 'a> From<T> for Minitel<'a> {
+    fn from(value: T) -> Self {
         Self {
             receiver: Box::new(value),
-            _cursor: Position::new(0, 1),
         }
     }
 }
@@ -117,5 +112,83 @@ pub struct Position {
 impl Position {
     pub fn new(x: u8, y: u8) -> Self {
         Self { x, y }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cmp;
+    use std::time::Duration;
+    use super::*;
+
+    struct MockReceiver {
+        buffer: Vec<u8>,
+    }
+
+    impl From<Vec<u8>> for MockReceiver {
+        fn from(value: Vec<u8>) -> Self {
+            Self {
+                buffer: value,
+            }
+        }
+    }
+
+    impl TeletelReceiver for MockReceiver {
+        fn read(&mut self, buffer: &mut [u8]) -> Result<usize, Error> {
+            let bytes_to_read = cmp::min(buffer.len(), self.buffer.len());
+            let read_bytes = self.buffer.drain(..bytes_to_read).collect::<Vec<u8>>();
+
+            buffer[..bytes_to_read].copy_from_slice(&read_bytes);
+
+            Ok(bytes_to_read)
+        }
+
+        fn send(&mut self, _bytes: &[u8]) {
+            panic!("MockReceiver does not support sending");
+        }
+    }
+
+    #[test]
+    fn test_read_to_vec() {
+        let buffer = MockReceiver::from(vec![]);
+        let mut mt = Minitel::from(buffer);
+
+        let data = mt.read_to_vec().unwrap();
+        assert_eq!(data, []);
+
+        let buffer = MockReceiver::from(vec![0x01]);
+        let mut mt = Minitel::from(buffer);
+
+        let data = mt.read_to_vec().unwrap();
+        assert_eq!(data, [0x01]);
+
+        let buffer = MockReceiver::from(vec![0x01, 0x02, 0x03, 0x04, 0x05]);
+        let mut mt = Minitel::from(buffer);
+
+        let data = mt.read_to_vec().unwrap();
+        assert_eq!(data, [0x01, 0x02, 0x03, 0x04, 0x05]);
+    }
+
+    #[test]
+    fn test_read_until_enter() {
+        assert_times_out!(Duration::from_millis(10), || {
+            let buffer = MockReceiver::from(vec![]);
+            let mut mt = Minitel::from(buffer);
+
+            mt.read_until_enter().unwrap();
+        });
+
+        assert_times_out!(Duration::from_millis(10), || {
+            let buffer = MockReceiver::from(vec![0x01, 0x02, 0x03, 0x04, 0x05]);
+            let mut mt = Minitel::from(buffer);
+
+            mt.read_until_enter().unwrap();
+        });
+
+        let buffer = MockReceiver::from(vec![0x01, 0x02, 0x03, b'\r', 0x04, 0x05]);
+        let mut mt = Minitel::from(buffer);
+
+        let data = mt.read_until_enter().unwrap();
+        assert_eq!(data, [0x01, 0x02, 0x03]);
     }
 }
