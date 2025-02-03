@@ -2,18 +2,18 @@ use std::mem;
 use crate::protocol::codes::*;
 
 /// - If G2 character set is requested but the following code does not exist in G2 a
-///  lower horizontal line will be displayed instead except if it's contained in C0 then
-///  the C0 character is displayed and SS2 is ignored (??? end of p90).
+///   lower horizontal line will be displayed instead except if it's contained in C0 then
+///   the C0 character is displayed and SS2 is ignored (??? end of p90).
 /// - While G1 is active, any attempt to switch to G2 is ignored
 /// - Attempting to use an accent on a character that does not support it will result
-///  in displaying the character without the accent. VGP5 supports àâäéèêëîïöôùûüç and
-///  VGP2 supports àâéèêëîïôùûç. No uppercase characters are supported.
+///   in displaying the character without the accent. VGP5 supports àâäéèêëîïöôùûüç and
+///   VGP2 supports àâéèêëîïôùûç. No uppercase characters are supported.
 /// - ß and § are only supported on VGP5
 /// - Double size and double height are ignored in line 0 and 1
 /// - Size and inverted are not ignored when in semi-graphic mode and are cleared when
-///  switching to semi-graphic mode
+///   switching to semi-graphic mode
 /// - An attribute stops being applied and reset to their default value when starting
-///  or exiting a section or a subsection
+///   or exiting a section or a subsection
 /// - Double height, width or size characters are displayed from the bottom left corner
 
 #[derive(Eq, PartialEq)]
@@ -125,7 +125,7 @@ impl Parsable for SimpleCharacter {
     }
 
     fn supports(ctx: &Context, byte: u8) -> bool {
-        ctx.character_set == CharacterSet::G0 && byte >= 0x20 && byte <= 0x7F
+        ctx.character_set == CharacterSet::G0 && (0x20..=0x7F).contains(&byte)
     }
 
     fn consume(&mut self, _ctx: &Context, byte: u8) -> Self {
@@ -151,7 +151,7 @@ impl Parsable for SemiGraphicCharacter {
     }
 
     fn supports(ctx: &Context, byte: u8) -> bool {
-        ctx.character_set == CharacterSet::G1 && (byte >= 0x20 && byte <= 0x3F || byte >= 0x60 && byte <= 0x7F)
+        ctx.character_set == CharacterSet::G1 && ((0x20..=0x3F).contains(&byte) || (0x60..=0x7F).contains(&byte))
     }
 
     fn consume(&mut self, _ctx: &Context, byte: u8) -> Self {
@@ -257,14 +257,14 @@ impl Parsable for SpecialCharacter {
     }
 
     fn is_complete(&self) -> bool {
-        match self {
-            SpecialCharacter::Grave(None) => false,
-            SpecialCharacter::Acute(None) => false,
-            SpecialCharacter::Circumflex(None) => false,
-            SpecialCharacter::Diaeresis(None) => false,
-            SpecialCharacter::Cedilla(None) => false,
-            _ => true,
-        }
+        !matches!(
+            self,
+            SpecialCharacter::Grave(None) |
+            SpecialCharacter::Acute(None) |
+            SpecialCharacter::Circumflex(None)|
+            SpecialCharacter::Diaeresis(None)|
+            SpecialCharacter::Cedilla(None)
+        )
     }
 }
 
@@ -296,7 +296,7 @@ impl Parsable for Csi {
     fn consume(&mut self, _ctx: &Context, byte: u8) -> Self {
         match self {
             Csi::Incomplete => {
-                if byte >= 0x30 && byte <= 0x39 {
+                if (0x30..=0x39).contains(&byte) {
                     Csi::Quantified(byte - 0x30)
                 } else {
                     panic!("Unsupported or invalid CSI sequence starting with {:#04X}", byte);
@@ -323,12 +323,7 @@ impl Parsable for Csi {
     }
 
     fn is_complete(&self) -> bool {
-        match self {
-            Csi::Incomplete => false,
-            Csi::Quantified(_) => false,
-            Csi::IncompleteSetCursor(_, _) => false,
-            _ => true,
-        }
+        !matches!(self, Csi::Incomplete | Csi::Quantified(_) | Csi::IncompleteSetCursor(_, _))
     }
 }
 
@@ -447,7 +442,7 @@ impl Parsable for Sequence {
                     Sequence::SemiGraphicCharacter(SemiGraphicCharacter::new(ctx, byte))
                 } else if SimpleCharacter::supports(ctx, byte) {
                     Sequence::SimpleCharacter(SimpleCharacter::new(ctx, byte))
-                } else if byte >= CURSOR_LEFT && byte <= CURSOR_UP {
+                } else if (CURSOR_LEFT..=CURSOR_UP).contains(&byte) {
                     match byte {
                         CURSOR_LEFT => Sequence::MoveCursor(Direction::Left),
                         CURSOR_RIGHT => Sequence::MoveCursor(Direction::Right),

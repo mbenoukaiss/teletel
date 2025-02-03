@@ -15,21 +15,21 @@ impl ToMinitel for u8 {
 impl ToMinitel for char {
     fn to_minitel(&self, mt: &mut Minitel) {
         match *self {
-            'à' => mt.send(&[SS2, GRAVE, 'a' as u8]),
-            'ä' => mt.send(&[SS2, DIAERESIS, 'a' as u8]),
-            'â' => mt.send(&[SS2, CIRCUMFLEX, 'a' as u8]),
-            'é' => mt.send(&[SS2, ACUTE, 'e' as u8]),
-            'è' => mt.send(&[SS2, GRAVE, 'e' as u8]),
-            'ê' => mt.send(&[SS2, CIRCUMFLEX, 'e' as u8]),
-            'ë' => mt.send(&[SS2, DIAERESIS, 'e' as u8]),
-            'î' => mt.send(&[SS2, CIRCUMFLEX, 'i' as u8]),
-            'ï' => mt.send(&[SS2, DIAERESIS, 'i' as u8]),
-            'ö' => mt.send(&[SS2, DIAERESIS, 'o' as u8]),
-            'ô' => mt.send(&[SS2, CIRCUMFLEX, 'o' as u8]),
-            'ù' => mt.send(&[SS2, GRAVE, 'u' as u8]),
-            'ü' => mt.send(&[SS2, DIAERESIS, 'u' as u8]),
-            'û' => mt.send(&[SS2, CIRCUMFLEX, 'u' as u8]),
-            'ç' => mt.send(&[SS2, CEDILLA, 'c' as u8]),
+            'à' => mt.send(&[SS2, GRAVE, b'a']),
+            'ä' => mt.send(&[SS2, DIAERESIS, b'a']),
+            'â' => mt.send(&[SS2, CIRCUMFLEX, b'a']),
+            'é' => mt.send(&[SS2, ACUTE, b'e']),
+            'è' => mt.send(&[SS2, GRAVE, b'e']),
+            'ê' => mt.send(&[SS2, CIRCUMFLEX, b'e']),
+            'ë' => mt.send(&[SS2, DIAERESIS, b'e']),
+            'î' => mt.send(&[SS2, CIRCUMFLEX, b'i']),
+            'ï' => mt.send(&[SS2, DIAERESIS, b'i']),
+            'ö' => mt.send(&[SS2, DIAERESIS, b'o']),
+            'ô' => mt.send(&[SS2, CIRCUMFLEX, b'o']),
+            'ù' => mt.send(&[SS2, GRAVE, b'u']),
+            'ü' => mt.send(&[SS2, DIAERESIS, b'u']),
+            'û' => mt.send(&[SS2, CIRCUMFLEX, b'u']),
+            'ç' => mt.send(&[SS2, CEDILLA, b'c']),
             c => mt.send(unidecode::unidecode_char(c).as_bytes()),
         }
     }
@@ -93,11 +93,11 @@ mod tests {
 
         assert_eq!(data, [
             0x01,
-            'A' as u8,
+            b'A',
             0x02, 0x03,
             0x02, 0x03,
             0x02, 0x03,
-            'b' as u8, 'o' as u8, 'n' as u8,'j' as u8, 'o' as u8, 'u' as u8, 'r' as u8,
+            b'b', b'o', b'n',b'j', b'o', b'u', b'r',
         ]);
     }
 
@@ -109,7 +109,7 @@ mod tests {
             'à'.to_minitel(&mut mt);
         }
 
-        assert_eq!(data, &[0x19, 0x41, 'a' as u8]);
+        assert_eq!(data, &[0x19, 0x41, b'a']);
 
         let mut data = Buffer::new();
         {
@@ -117,7 +117,7 @@ mod tests {
             'é'.to_minitel(&mut mt);
         }
 
-        assert_eq!(data, &[0x19, 0x42, 'e' as u8]);
+        assert_eq!(data, &[0x19, 0x42, b'e']);
 
         let mut data = Buffer::new();
         {
@@ -125,7 +125,7 @@ mod tests {
             'ç'.to_minitel(&mut mt);
         }
 
-        assert_eq!(data, &[0x19, 0x4B, 'c' as u8]);
+        assert_eq!(data, &[0x19, 0x4B, b'c']);
 
         let mut data = Buffer::new();
         {
@@ -133,7 +133,7 @@ mod tests {
             'ç'.to_minitel(&mut mt);
         }
 
-        assert_eq!(data, &[0x19, 0x4B, 'c' as u8]);
+        assert_eq!(data, &[0x19, 0x4B, b'c']);
 
         let mut data = Buffer::new();
         {
@@ -150,21 +150,21 @@ mod tests {
         }
 
         assert_eq!(data, &[
-            0x19, 0x41, 'a' as u8,
-            0x19, 0x48, 'a' as u8,
-            0x19, 0x43, 'a' as u8,
-            0x19, 0x42, 'e' as u8,
-            0x19, 0x41, 'e' as u8,
-            0x19, 0x43, 'e' as u8,
-            0x19, 0x48, 'e' as u8,
-            0x19, 0x43, 'i' as u8,
-            0x19, 0x48, 'i' as u8,
-            0x19, 0x48, 'o' as u8,
-            0x19, 0x43, 'o' as u8,
-            0x19, 0x41, 'u' as u8,
-            0x19, 0x48, 'u' as u8,
-            0x19, 0x43, 'u' as u8,
-            0x19, 0x4B, 'c' as u8,
+            0x19, 0x41, b'a',
+            0x19, 0x48, b'a',
+            0x19, 0x43, b'a',
+            0x19, 0x42, b'e',
+            0x19, 0x41, b'e',
+            0x19, 0x43, b'e',
+            0x19, 0x48, b'e',
+            0x19, 0x43, b'i',
+            0x19, 0x48, b'i',
+            0x19, 0x48, b'o',
+            0x19, 0x43, b'o',
+            0x19, 0x41, b'u',
+            0x19, 0x48, b'u',
+            0x19, 0x43, b'u',
+            0x19, 0x4B, b'c',
         ]);
 
         let mut data = Buffer::new();
@@ -188,6 +188,6 @@ mod tests {
             }).to_minitel(&mut mt);
         }
 
-        assert_eq!(data, ['A' as u8, 'B' as u8, 'C' as u8]);
+        assert_eq!(data, [b'A', b'B', b'C']);
     }
 }
