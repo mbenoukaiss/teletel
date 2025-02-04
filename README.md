@@ -3,9 +3,9 @@
 It’s 1997, and the Minitel is revolutionizing the way people connect. Since its launch in 1982, this pioneering device
 has already become a global sensation, offering fast and compact ways for people to access everything: telephone 
 directories, video games, real-time communication with friends, family and even... well, let’s just say it’s versatile.
-As the Minitel continues to gain market shares against the internet, it is a crucial time for developers to create 
-innovative applications that will shape the future. Enter `teletel`, a Rust library that opens up new possibilities
-for interacting with this device, enabling you to build powerful apps for this game-changing technology.
+As teletel becomes became a standard and asserts its domination over the internet, it is a crucial time for developers   
+to create innovative applications that will shape the future. Enter `teletel`, a Rust library that opens up new 
+possibilities for interacting with this device, enabling you to build powerful apps for this game-changing technology.
 
 There’s no Git, Rust, GitHub or Markdown yet, somehow, you’re reading this. Magic? No, just the ✨Minitel✨
 

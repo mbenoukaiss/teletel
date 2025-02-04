@@ -1,3 +1,4 @@
+use std::io::ErrorKind;
 use crate::receiver::{FileReceiver, TeletelReceiver};
 use crate::Error;
 
@@ -57,7 +58,7 @@ impl Minitel<'_> {
         loop {
             let bytes_read = match self.read(&mut buffer) {
                 Ok(bytes_read) => bytes_read,
-                Err(Error::Io(ref e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => 0,
+                Err(Error::Io(ref e)) if e.kind() == ErrorKind::TimedOut => 0,
                 Err(e) => return Err(e),
             };
 

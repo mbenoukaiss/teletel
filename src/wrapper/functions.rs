@@ -24,6 +24,7 @@ macro_rules! declare {
 declare!(Clear, [FF]);
 declare!(ClearRow, [CSI_2_K]);
 declare!(Beep, [BEEP]);
+declare!(Underline<T: ToMinitel>(pub T), |self| [ESC, START_UNDERLINE, self.0, ESC, STOP_UNDERLINE]);
 declare!(Blink<T: ToMinitel>(pub T), |self| [ESC, BLINK, self.0, ESC, STILL]);
 declare!(Background<T: ToMinitel>(pub Color, pub T), |self| [ESC, BACKGROUND + self.0 as u8, self.1, ESC, BACKGROUND + Color::Black as u8]);
 declare!(Foreground<T: ToMinitel>(pub Color, pub T), |self| [ESC, FOREGROUND + self.0 as u8, self.1, ESC, FOREGROUND + Color::White as u8]);
