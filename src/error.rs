@@ -4,12 +4,14 @@ use std::io::Error as IoError;
 
 #[derive(Debug)]
 pub enum Error {
+    UnexpectedSequence,
     Io(IoError),
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Error::UnexpectedSequence => write!(f, "Unexpected sequence"),
             Error::Io(error) => write!(f, "IoError: {}", error),
         }
     }

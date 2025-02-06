@@ -1,7 +1,7 @@
-use crate::protocol::ToMinitel;
+use std::io::Result as IoResult;
 use crate::functions::{Direction, MoveCursor, Repeat, SemiGraphic};
-use crate::Minitel;
 use crate::protocol::codes::{SI, SO};
+use crate::terminal::{ToTerminal, WriteableTerminal};
 
 pub struct HLine(pub u8, pub u8);
 
@@ -12,8 +12,8 @@ impl HLine {
     pub const BOT: u8 = 0b001;
 }
 
-impl ToMinitel for HLine {
-    fn to_minitel(&self, mt: &mut Minitel) {
+impl ToTerminal for HLine {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
         assert!(self.0 <= 40);
 
         let mut character = 0x00;
@@ -30,7 +30,7 @@ impl ToMinitel for HLine {
             character |= sg!(00/00/11);
         }
 
-        SemiGraphic(Repeat(character, self.0)).to_minitel(mt);
+        SemiGraphic(Repeat(character, self.0)).to_terminal(term)
     }
 }
 
@@ -42,8 +42,8 @@ impl VLine {
     pub const RIGHT: u8 = 0b01;
 }
 
-impl ToMinitel for VLine {
-    fn to_minitel(&self, mt: &mut Minitel) {
+impl ToTerminal for VLine {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
         assert!(self.0 <= 22);
 
         let mut character = 0x00;
@@ -55,17 +55,20 @@ impl ToMinitel for VLine {
         if self.1 & VLine::RIGHT != 0 {
             character |= sg!(01/01/01);
         }
-        println!("{:#04X}", character);
 
-        SO.to_minitel(mt);
+        let mut written_bytes = 0;
+
+        written_bytes += SO.to_terminal(term)?;
 
         for _ in 0..self.0 {
-            character.to_minitel(mt);
-            MoveCursor(Direction::Down, 1).to_minitel(mt);
-            MoveCursor(Direction::Left, 1).to_minitel(mt);
+            written_bytes += character.to_terminal(term)?;
+            written_bytes += MoveCursor(Direction::Down, 1).to_terminal(term)?;
+            written_bytes += MoveCursor(Direction::Left, 1).to_terminal(term)?;
         }
 
-        SI.to_minitel(mt);
+        written_bytes += SI.to_terminal(term)?;
+
+        Ok(written_bytes)
     }
 }
 
@@ -78,42 +81,46 @@ impl RectangleOutline {
     pub const IN: u8 = 0b01;
 }
 
-impl ToMinitel for RectangleOutline {
-    fn to_minitel(&self, mt: &mut Minitel) {
+impl ToTerminal for RectangleOutline {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
         assert!(self.0 >= 2 && self.0 <= 40);
         assert!(self.1 >= 2 && self.1 <= 24);
 
         let character_set = RectangleOutlineCharacterSet::new(self.2);
 
-        SO.to_minitel(mt);
-        character_set.top_left_corner.to_minitel(mt);
-        Repeat(character_set.top_line, self.0 - 2).to_minitel(mt);
-        character_set.top_right_corner.to_minitel(mt);
+        let mut written_bytes = 0;
+
+        written_bytes += SO.to_terminal(term)?;
+        written_bytes += character_set.top_left_corner.to_terminal(term)?;
+        written_bytes += Repeat(character_set.top_line, self.0 - 2).to_terminal(term)?;
+        written_bytes += character_set.top_right_corner.to_terminal(term)?;
 
         for _ in 0..(self.1 - 2) {
-            MoveCursor(Direction::Down, 1).to_minitel(mt);
-            MoveCursor(Direction::Left, 1).to_minitel(mt);
-            character_set.right_line.to_minitel(mt);
+            written_bytes += MoveCursor(Direction::Down, 1).to_terminal(term)?;
+            written_bytes += MoveCursor(Direction::Left, 1).to_terminal(term)?;
+            written_bytes += character_set.right_line.to_terminal(term)?;
         }
 
-        MoveCursor(Direction::Down, 1).to_minitel(mt);
-        MoveCursor(Direction::Left, 1).to_minitel(mt);
-        character_set.bottom_right_corner.to_minitel(mt);
+        written_bytes += MoveCursor(Direction::Down, 1).to_terminal(term)?;
+        written_bytes += MoveCursor(Direction::Left, 1).to_terminal(term)?;
+        written_bytes += character_set.bottom_right_corner.to_terminal(term)?;
 
-        MoveCursor(Direction::Left, self.0 - 2 + 1).to_minitel(mt);
-        Repeat(character_set.bottom_line, self.0 - 2).to_minitel(mt);
-        MoveCursor(Direction::Left, self.0 - 2 + 1).to_minitel(mt);
-        character_set.bottom_left_corner.to_minitel(mt);
+        written_bytes += MoveCursor(Direction::Left, self.0 - 2 + 1).to_terminal(term)?;
+        written_bytes += Repeat(character_set.bottom_line, self.0 - 2).to_terminal(term)?;
+        written_bytes += MoveCursor(Direction::Left, self.0 - 2 + 1).to_terminal(term)?;
+        written_bytes += character_set.bottom_left_corner.to_terminal(term)?;
 
-        MoveCursor(Direction::Up, self.1 - 1).to_minitel(mt);
+        written_bytes += MoveCursor(Direction::Up, self.1 - 1).to_terminal(term)?;
 
         for _ in 0..self.1 - 2 {
-            MoveCursor(Direction::Down, 1).to_minitel(mt);
-            MoveCursor(Direction::Left, 1).to_minitel(mt);
-            character_set.left_line.to_minitel(mt);
+            written_bytes += MoveCursor(Direction::Down, 1).to_terminal(term)?;
+            written_bytes += MoveCursor(Direction::Left, 1).to_terminal(term)?;
+            written_bytes += character_set.left_line.to_terminal(term)?;
         }
 
-        SI.to_minitel(mt);
+        written_bytes += SI.to_terminal(term)?;
+        
+        Ok(written_bytes)
     }
 }
 
@@ -168,20 +175,24 @@ impl RectangleOutlineCharacterSet {
 
 pub struct FilledRectangle(pub u8, pub u8);
 
-impl ToMinitel for FilledRectangle {
-    fn to_minitel(&self, mt: &mut Minitel) {
+impl ToTerminal for FilledRectangle {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
         assert!(self.0 <= 40);
         assert!(self.1 <= 23);
 
-        SO.to_minitel(mt);
-        Repeat(sg!(11/11/11), self.0).to_minitel(mt);
+        let mut written_bytes = 0;
+
+        written_bytes += SO.to_terminal(term)?;
+        written_bytes += Repeat(sg!(11/11/11), self.0).to_terminal(term)?;
 
         for _ in 0..self.1 - 2 {
-            MoveCursor(Direction::Down, 1).to_minitel(mt);
-            MoveCursor(Direction::Left, self.0).to_minitel(mt);
-            Repeat(sg!(11/11/11), self.0).to_minitel(mt);
+            written_bytes += MoveCursor(Direction::Down, 1).to_terminal(term)?;
+            written_bytes += MoveCursor(Direction::Left, self.0).to_terminal(term)?;
+            written_bytes += Repeat(sg!(11/11/11), self.0).to_terminal(term)?;
         }
 
-        SI.to_minitel(mt);
+        written_bytes += SI.to_terminal(term)?;
+
+        Ok(written_bytes)
     }
 }

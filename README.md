@@ -3,7 +3,7 @@
 It’s 1997, and the Minitel is revolutionizing the way people connect. Since its launch in 1982, this pioneering device
 has already become a global sensation, offering fast and compact ways for people to access everything: telephone 
 directories, video games, real-time communication with friends, family and even... well, let’s just say it’s versatile.
-As teletel becomes became a standard and asserts its domination over the internet, it is a crucial time for developers   
+As teletel becomes a standard and asserts its domination over the internet, it is a crucial time for developers   
 to create innovative applications that will shape the future. Enter `teletel`, a Rust library that opens up new 
 possibilities for interacting with this device, enabling you to build powerful apps for this game-changing technology.
 
@@ -14,10 +14,10 @@ You will need a Minitel device and some way to communicate with it. You can eith
 to USB cable specifically for the minitel. Connecting it directly through UART to an ESP32, Arduino or anything else
 is not yet supported.
 
-First add the following to your `Cargo.toml`:
+First add the following to your `Cargo.toml` and change `minitel2` to `minitel1b` if you have a Minitel 1B:
 ```toml
 [dependencies]
-teletel = { version = "???", features = ["serial"] }
+teletel = { version = "???", features = ["minitel2", "serial"] }
 ```
 
 Once you plugged the Minitel you can use the following code to send text to it:
@@ -26,12 +26,12 @@ Once you plugged the Minitel you can use the following code to send text to it:
 extern crate teletel;
 
 use std::error::Error;
-use teletel::{Minitel, BaudRate};
 use teletel::functions::{Clear, Foreground, Color, Repeat, SetCursor};
+use teletel::terminal::{BaudRate, SerialTerminal};
 
 fn main() -> Result<(), Box<dyn Error>> {
     //change path and baudrate to match your setup
-    let mut port = Minitel::serial("/dev/ttyUSB0", BaudRate::B9600)?;
+    let mut port = SerialTerminal::new("/dev/ttyUSB0", BaudRate::B9600)?;
 
     send!(&mut port, [
         Clear,
@@ -52,6 +52,9 @@ sudo adduser $USER dialout
 ```
 
 ## Features
+- `minitel2` switches to compatibility mode for the Minitel 2. **Enabled by default**
+- `minitel1b` switches to compatibility mode for the Minitel 1B, disables some features that are not 
+ available on the Minitel 1B. **Disabled by default**
 - `colors` when enabled, changes the `Color` enum variants to be the 8 colors available on the 
  versions of Minitel that support colors instead of grayscale. **Disabled by default**
 - `serial` enables communicating with the Minitel through a USB port. **Disabled by default**

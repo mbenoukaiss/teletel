@@ -9,6 +9,9 @@ serial2 = { version = "0.2.28", optional = true }
 unidecode = "0.3.0"
 
 [features]
+default = ["minitel2"]
+minitel1b = []
+minitel2 = []
 colors = []
 serial = ["dep:serial2"]
 

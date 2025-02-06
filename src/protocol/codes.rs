@@ -145,6 +145,13 @@ pub mod proto {
     pub const PRO3: u8 = 0x3B;
     pub const START: u8 = 0x69;
     pub const STOP: u8 = 0x6A;
+    pub const PROG: u8 = 0x6B; //p141
+    pub const B300: u8 = 0x52;
+    pub const B1200: u8 = 0x64;
+    pub const B4800: u8 = 0x76;
+    pub const B9600: u8 = 0x7F;
+    pub const REQ_SPEED: u8 = 0x74; //p141
+    pub const RESP_SPEED: u8 = 0x75; //p141
     pub const SCROLL: u8 = 0x43; //p143
     pub const PROCEDURE: u8 = 0x44; //p143
     pub const CASE: u8 = 0x45; //p143
@@ -168,6 +175,7 @@ pub const CURSOR_OFF: u8 = 0x14; //p99
 /// TODO: what about 80 characters wide screens in dual mode
 ///
 /// Documented on page 98.
+#[inline(always)]
 pub const fn repeat(character: u8, count: u8) -> [u8; 3] {
     assert!(count > 0);
     assert!(count <= 64);
@@ -175,6 +183,7 @@ pub const fn repeat(character: u8, count: u8) -> [u8; 3] {
     [character, 0x12, 0x40 + count - 1]
 }
 
+#[inline(always)]
 pub const fn to_decimal(value: u8) -> [u8; 2] {
     assert!(value <= 99);
 

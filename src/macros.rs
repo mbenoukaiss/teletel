@@ -2,17 +2,23 @@ pub use teletel_derive::sg;
 
 #[macro_export]
 macro_rules! send {
-    ($mt:expr, [$($code:expr),+ $(,)?]) => {{
-        $($crate::protocol::ToMinitel::to_minitel(&$code, $mt);)+
-        $crate::Minitel::flush($mt)
+    ($term:expr, [$($code:expr),+ $(,)?]) => {{
+        $($crate::terminal::ToTerminal::to_terminal(&$code, $term)?;)+
+        ::std::io::Write::flush($term)
     }};
+    ($term:expr, $code:expr) => {
+        send!($term, [$code])
+    };
 }
 
 #[macro_export]
 macro_rules! list {
     ($($code:expr),+ $(,)?) => {{
-        |mt: &mut $crate::Minitel| {
-            $($crate::protocol::ToMinitel::to_minitel(&$code, mt);)+
+        |term: &mut dyn $crate::terminal::WriteableTerminal| -> std::io::Result<usize> {
+            let mut written_bytes = 0;
+            $(written_bytes += $crate::terminal::ToTerminal::to_terminal(&$code, term)?;)+
+
+            std::result::Result::Ok(written_bytes)
         }
     }};
 }
@@ -21,7 +27,7 @@ macro_rules! list {
 #[macro_export]
 macro_rules! assert_panics {
     (|| $code:expr) => {
-        assert!(std::panic::catch_unwind(|| $code).is_err());
+        assert_panics!($code);
     };
     ($code:expr) => {
         assert!(std::panic::catch_unwind(|| $code).is_err());

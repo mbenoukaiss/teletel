@@ -2,18 +2,18 @@
 extern crate teletel;
 
 use std::error::Error;
-use teletel::{BaudRate, Minitel};
 use teletel::functions::{Big, Clear, Inverted, SetCursor, Repeat, SemiGraphic};
+use teletel::terminal::{BaudRate, SerialTerminal, WriteableTerminal};
 
 /// Displays the Lumon droplet logo from
 /// Severance on the minitel screen
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut mt = Minitel::serial("/dev/ttyUSB0", BaudRate::B9600)?;
+    let mut serial = SerialTerminal::new("/dev/ttyUSB0", BaudRate::B9600)?;
 
-    draw_background(&mut mt)?;
-    draw_droplet(&mut mt)?;
+    draw_background(&mut serial)?;
+    draw_droplet(&mut serial)?;
 
-    send!(&mut mt, [
+    send!(&mut serial, [
         SetCursor(15, 20),
         Big("Lumon"),
     ])?;
@@ -21,8 +21,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn draw_background(mt: &mut Minitel) -> Result<(), Box<dyn Error>> {
-    send!(mt, [
+fn draw_background(term: &mut dyn WriteableTerminal) -> Result<(), Box<dyn Error>> {
+    send!(term, [
         Clear,
 
         SemiGraphic(list![
@@ -45,13 +45,13 @@ fn draw_background(mt: &mut Minitel) -> Result<(), Box<dyn Error>> {
     ])?;
 
     for i in 1..12 {
-        send!(mt, [
+        send!(term, [
             SetCursor(10, 5 + i),
             SemiGraphic(Repeat(sg!(11/11/11), 20)),
         ])?;
     }
 
-    send!(mt, [
+    send!(term, [
         SemiGraphic(list![
             SetCursor(10, 16),
             sg!(11/01/01),
@@ -72,8 +72,8 @@ fn draw_background(mt: &mut Minitel) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn draw_droplet(mt: &mut Minitel) -> Result<(), Box<dyn Error>> {
-    send!(mt, [
+fn draw_droplet(term: &mut dyn WriteableTerminal) -> Result<(), Box<dyn Error>> {
+    send!(term, [
         Inverted(list![
             SemiGraphic(list![
                 SetCursor(19, 6),

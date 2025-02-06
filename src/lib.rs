@@ -8,11 +8,10 @@ mod error;
 mod wrapper;
 
 pub mod minitel;
-pub mod protocol;
-pub mod receiver;
+pub mod protocol; //confusing with wrapper::proto, todo fix
+pub mod terminal;
 
 pub use error::Error;
-pub use minitel::{BaudRate, Minitel};
 
 pub use macros::*;
 pub use wrapper::*;
