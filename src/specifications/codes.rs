@@ -9,8 +9,11 @@ pub const SO: u8 = 0x0E;
 pub const SI: u8 = 0x0F;
 
 pub mod c0 {
+    /// Starts an escaping sequence
     pub const ESC: u8 = 0x1B;
     pub const SEP: u8 = 0x13;
+    /// Activates the G2 character set
+    pub const SS2: u8 = 0x19;
 }
 
 /// The C1 grid which contains formatting codes like coloring
@@ -65,18 +68,16 @@ pub mod c1 {
 }
 
 /// The G2 character set which contains accented and other special
-/// characters. This character set can not be activated while the G1
-/// character set is active
+/// characters. It is activated by sending the SSE (0x19) code.
+/// It is only temporarily activated for the next character that is
+/// sent and must thus be sent before each G2 character. This
+/// character set can not be activated while the G1 character set
+/// is active.
 ///
 /// Documented on pages 88 to 90.
 /// Table with the whole character set on pages 103 or 104
 /// depending on the display component (VGP2/VGP5).
 pub mod ss2 {
-    /// Activates the G2 character set. It is only temporarily
-    /// activated for the next character that is sent and must thus
-    /// be sent before each G2 character.
-    pub const SS2: u8 = 0x19;
-
     pub const GRAVE: u8 = 0x41;
     pub const ACUTE: u8 = 0x42;
     pub const CIRCUMFLEX: u8 = 0x43;

@@ -1,5 +1,5 @@
 use std::io::Result as IoResult;
-use crate::specifications::codes::{ACUTE, CEDILLA, CIRCUMFLEX, DIAERESIS, GRAVE, SS2};
+use crate::specifications::codes::*;
 use crate::terminal::WriteableTerminal;
 
 pub trait ToTerminal {
@@ -31,6 +31,23 @@ impl ToTerminal for char {
             'ü' => term.write(&[SS2, DIAERESIS, b'u']),
             'û' => term.write(&[SS2, CIRCUMFLEX, b'u']),
             'ç' => term.write(&[SS2, CEDILLA, b'c']),
+            'œ' => term.write(&[SS2, LOWER_OE]),
+            'Œ' => term.write(&[SS2, UPPER_OE]),
+            'ß' | 'ẞ' => term.write(&[SS2, ESZETT]),
+            '£' => term.write(&[SS2, POUND]),
+            '$' => term.write(&[SS2, DOLLAR]),
+            '#' => term.write(&[SS2, NUMBER_SIGN]),
+            '←' => term.write(&[SS2, ARROW_LEFT]),
+            '↑' => term.write(&[SS2, ARROW_UP]),
+            '→' => term.write(&[SS2, ARROW_RIGHT]),
+            '↓' => term.write(&[SS2, ARROW_DOWN]),
+            '§' => term.write(&[SS2, PARAGRAPH]),
+            '°' => term.write(&[SS2, DEGREE]),
+            '±' => term.write(&[SS2, PLUS_OR_MINUS]),
+            '÷' => term.write(&[SS2, OBELUS]),
+            '¼' => term.write(&[SS2, ONE_QUARTER]),
+            '½' => term.write(&[SS2, ONE_HALF]),
+            '¾' => term.write(&[SS2, THREE_QUARTERS]),
             c => term.write(unidecode::unidecode_char(c).as_bytes()),
         }
     }
@@ -156,6 +173,75 @@ mod tests {
         "ÀÄÂÉÈÊËÎÏÖÔÙÜÛÇ".to_terminal(&mut buf).unwrap();
 
         assert_eq!(buf.data(), "AAAEEEEIIOOUUUC".as_bytes());
+
+        let mut buf = Buffer::new();
+        "œŒßẞ".to_terminal(&mut buf).unwrap();
+
+        assert_eq!(buf.data(), &[
+            0x19, 0x7A,
+            0x19, 0x6A,
+            0x19, 0x7B,
+            0x19, 0x7B,
+        ]);
+    }
+
+    #[test]
+    fn test_special_characters() {
+        let mut buf = Buffer::new();
+        '£'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x23]);
+
+        let mut buf = Buffer::new();
+        '$'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x24]);
+
+        let mut buf = Buffer::new();
+        '#'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x26]);
+
+        let mut buf = Buffer::new();
+        '←'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x2C]);
+
+        let mut buf = Buffer::new();
+        '↑'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x2D]);
+
+        let mut buf = Buffer::new();
+        '→'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x2E]);
+
+        let mut buf = Buffer::new();
+        '↓'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x2F]);
+
+        let mut buf = Buffer::new();
+        '§'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x27]);
+
+        let mut buf = Buffer::new();
+        '°'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x30]);
+
+        let mut buf = Buffer::new();
+        '±'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x31]);
+
+        let mut buf = Buffer::new();
+        '÷'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x38]);
+
+        let mut buf = Buffer::new();
+        '¼'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x3C]);
+
+        let mut buf = Buffer::new();
+        '½'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x3D]);
+
+        let mut buf = Buffer::new();
+        '¾'.to_terminal(&mut buf).unwrap();
+        assert_eq!(buf.data(), &[0x19, 0x3E]);
     }
 
     #[test]
