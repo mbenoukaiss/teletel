@@ -1,5 +1,5 @@
 use std::mem;
-use crate::protocol::codes::*;
+use crate::specifications::codes::*;
 
 /// - If G2 character set is requested but the following code does not exist in G2 a
 ///   lower horizontal line will be displayed instead except if it's contained in C0 then

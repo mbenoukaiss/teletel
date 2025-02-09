@@ -2,13 +2,15 @@
 extern crate teletel;
 
 use std::error::Error;
+use std::thread::sleep;
 use teletel::functions::{Big, Clear, Inverted, SetCursor, Repeat, SemiGraphic};
-use teletel::terminal::{BaudRate, SerialTerminal, WriteableTerminal};
+use teletel::protocol::ProtocolExtension;
+use teletel::terminal::{SerialTerminal, WriteableTerminal};
 
 /// Displays the Lumon droplet logo from
 /// Severance on the minitel screen
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut serial = SerialTerminal::new("/dev/ttyUSB0", BaudRate::B9600)?;
+    let mut serial = SerialTerminal::new("/dev/ttyUSB0", None)?;
 
     draw_background(&mut serial)?;
     draw_droplet(&mut serial)?;

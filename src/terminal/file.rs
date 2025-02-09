@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::fs::{File, OpenOptions};
 use std::io::{Result as IoResult, Write};
 use std::path::{Path};
@@ -24,8 +23,8 @@ impl FileReceiver {
     }
 
     #[inline(always)]
-    pub fn send<T: ToTerminal, R: Borrow<T>>(&mut self, data: R) -> IoResult<usize> {
-        data.borrow().to_terminal(self)
+    pub fn send(&mut self, data: impl ToTerminal) -> IoResult<usize> {
+        data.to_terminal(self)
     }
 }
 

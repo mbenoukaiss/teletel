@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::io::{Result as IoResult, Write};
 use crate::terminal::{Context, Contextualized, ToTerminal, WriteableTerminal};
 
@@ -15,15 +14,21 @@ impl Buffer {
 
 impl Buffer {
     pub fn new() -> Buffer {
+        Buffer::default()
+    }
+
+    #[inline(always)]
+    pub fn send(&mut self, data: impl ToTerminal) -> IoResult<usize> {
+        data.to_terminal(self)
+    }
+}
+
+impl Default for Buffer {
+    fn default() -> Self {
         Buffer {
             ctx: Context,
             inner: Vec::new(),
         }
-    }
-
-    #[inline(always)]
-    pub fn send<T: ToTerminal, R: Borrow<T>>(&mut self, data: R) -> IoResult<usize> {
-        data.borrow().to_terminal(self)
     }
 }
 

@@ -1,5 +1,5 @@
 use std::io::Result as IoResult;
-use crate::protocol::codes::{ACUTE, CEDILLA, CIRCUMFLEX, DIAERESIS, GRAVE, SS2};
+use crate::specifications::codes::{ACUTE, CEDILLA, CIRCUMFLEX, DIAERESIS, GRAVE, SS2};
 use crate::terminal::WriteableTerminal;
 
 pub trait ToTerminal {

@@ -7,8 +7,7 @@ mod macros;
 mod error;
 mod wrapper;
 
-pub mod minitel;
-pub mod protocol; //confusing with wrapper::proto, todo fix
+pub mod specifications;
 pub mod terminal;
 
 pub use error::Error;

@@ -27,11 +27,11 @@ extern crate teletel;
 
 use std::error::Error;
 use teletel::functions::{Clear, Foreground, Color, Repeat, SetCursor};
-use teletel::terminal::{BaudRate, SerialTerminal};
+use teletel::terminal::SerialTerminal;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    //change path and baudrate to match your setup
-    let mut port = SerialTerminal::new("/dev/ttyUSB0", BaudRate::B9600)?;
+    //change path to match your setup, you can leave None for baudrate to scan for correct rate
+    let mut port = SerialTerminal::new("/dev/ttyUSB0", None)?;
 
     send!(&mut port, [
         Clear,
@@ -53,8 +53,9 @@ sudo adduser $USER dialout
 
 ## Features
 - `minitel2` switches to compatibility mode for the Minitel 2. **Enabled by default**
-- `minitel1b` switches to compatibility mode for the Minitel 1B, disables some features that are not 
- available on the Minitel 1B. **Disabled by default**
+- `minitel1b` switches to compatibility mode for the Minitel 1B, not strictly necessary 
+  to enable this feature, but it disables some features that are not available on the 
+  Minitel 1B and avoids trying to use them without knowing. **Disabled by default**
 - `colors` when enabled, changes the `Color` enum variants to be the 8 colors available on the 
- versions of Minitel that support colors instead of grayscale. **Disabled by default**
+  versions of Minitel that support colors instead of grayscale. **Disabled by default**
 - `serial` enables communicating with the Minitel through a USB port. **Disabled by default**

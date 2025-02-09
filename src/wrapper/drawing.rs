@@ -1,6 +1,6 @@
 use std::io::Result as IoResult;
 use crate::functions::{Direction, MoveCursor, Repeat, SemiGraphic};
-use crate::protocol::codes::{SI, SO};
+use crate::specifications::codes::{SI, SO};
 use crate::terminal::{ToTerminal, WriteableTerminal};
 
 pub struct HLine(pub u8, pub u8);

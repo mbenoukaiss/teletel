@@ -1,5 +1,6 @@
 pub mod drawing;
 pub mod functions;
+pub mod protocol;
 
 macro_rules! declare {
     ($name:ident $(<$($lt:tt$(:$clt:tt$(+$dlt:tt)*)?),+>)? $(($($vis:vis $ty:ty),*))?, [$($code:expr),+ $(,)?]) => {

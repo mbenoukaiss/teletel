@@ -8,17 +8,19 @@ pub const SO: u8 = 0x0E;
 /// Deactivates the G1 character set and switch back to G0.
 pub const SI: u8 = 0x0F;
 
+pub mod c0 {
+    pub const ESC: u8 = 0x1B;
+    pub const SEP: u8 = 0x13;
+}
+
 /// The C1 grid which contains formatting codes like coloring
 /// underlining, size, blinking etc. Each code must be
 /// preceded by the ESC character (0x1B) to enable C1.
+/// It is only temporarily activated for the next code that is
+/// sent and must thus be sent before each C1 character.
 ///
 /// Documented on pages 91 and 92.
 pub mod c1 {
-    /// Activates the C1 grid. It is only temporarily
-    /// activated for the next code that is sent and must thus
-    /// be sent before each C1 character.
-    pub const ESC: u8 = 0x1B;
-
     pub const FOREGROUND: u8 = 0x40;
     pub const BACKGROUND: u8 = 0x50;
 
@@ -149,6 +151,7 @@ pub mod proto {
     pub const B300: u8 = 0x52;
     pub const B1200: u8 = 0x64;
     pub const B4800: u8 = 0x76;
+    #[cfg(feature = "minitel2")]
     pub const B9600: u8 = 0x7F;
     pub const REQ_SPEED: u8 = 0x74; //p141
     pub const RESP_SPEED: u8 = 0x75; //p141
@@ -157,8 +160,10 @@ pub mod proto {
     pub const CASE: u8 = 0x45; //p143
     pub const STATE_REQUEST: u8 = 0x72; //p143
     pub const STATE_RESPONSE: u8 = 0x73; //p143
+    pub const RESET: u8 = 0x7F; //p145
 }
 
+pub use c0::*;
 pub use c1::*;
 pub use ss2::*;
 pub use layout::*;

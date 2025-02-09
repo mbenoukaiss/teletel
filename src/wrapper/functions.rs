@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use std::io::Result as IoResult;
-use crate::protocol::codes::*;
+use crate::specifications::codes::*;
 use crate::terminal::{ToTerminal, WriteableTerminal};
 use crate::declare;
 
