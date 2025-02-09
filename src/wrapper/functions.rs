@@ -14,7 +14,15 @@ declare!(Background<T: ToTerminal>(pub Color, pub T), |self| [ESC, BACKGROUND + 
 declare!(Foreground<T: ToTerminal>(pub Color, pub T), |self| [ESC, FOREGROUND + self.0 as u8, self.1, ESC, FOREGROUND + Color::White as u8]);
 declare!(Inverted<T: ToTerminal>(pub T), |self| [ESC, START_INVERT, self.0, ESC, STOP_INVERT]);
 declare!(Big<T: ToTerminal>(pub T), |self| [ESC, DOUBLE_SIZE, self.0, ESC, NORMAL_SIZE]);
+declare!(Mask<T: ToTerminal>(pub T), |self| [ESC, MASK, self.0, ESC, UNMASK]);
 declare!(SemiGraphic<T: ToTerminal>(pub T), |self| [SO, self.0, SI]);
+
+//not an ideal setup: the teletel standard provides no way to just reset the double height
+//or just reset the double width, so we have to reset both, however we would want to keep
+//double width when double height ends for example, so ideally this would be refactored
+//to take context into account when context/parsing is implemented
+declare!(Tall<T: ToTerminal>(pub T), |self| [ESC, DOUBLE_HEIGHT, self.0, ESC, NORMAL_SIZE]);
+declare!(Wide<T: ToTerminal>(pub T), |self| [ESC, DOUBLE_WIDTH, self.0, ESC, NORMAL_SIZE]);
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
@@ -79,6 +87,14 @@ impl ToTerminal for SetCursor {
     }
 }
 
+#[repr(u8)]
+pub enum Direction {
+    Up,
+    Down,
+    Right,
+    Left,
+}
+
 pub struct MoveCursor(pub Direction, pub u8);
 
 impl ToTerminal for MoveCursor {
@@ -133,12 +149,18 @@ impl<B: AsRef<[u8]> + ToTerminal> ToTerminal for Videotex<B> {
     }
 }
 
-#[repr(u8)]
-pub enum Direction {
-    Up,
-    Down,
-    Right,
-    Left,
+pub enum ScreenMasking {
+    On,
+    Off,
+}
+
+impl ToTerminal for ScreenMasking {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+        match self {
+            ScreenMasking::On => [ESC, 0x23, 0x20, MASK].to_terminal(term),
+            ScreenMasking::Off => [ESC, 0x23, 0x20, UNMASK].to_terminal(term),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -222,6 +244,17 @@ mod tests {
         let mut data = Buffer::new();
         Big("bonjour").to_terminal(&mut data).unwrap();
         assert_eq!(data.data(), [0x1B, 0x4F, 'b' as u8, 'o' as u8, 'n' as u8, 'j' as u8, 'o' as u8, 'u' as u8, 'r' as u8, 0x1B, 0x4C]);
+    }
+
+    #[test]
+    fn test_mask() {
+        let mut data = Buffer::new();
+        Mask('A').to_terminal(&mut data).unwrap();
+        assert_eq!(data.data(), [0x1B, 0x58, 'A' as u8, 0x1B, 0x5F]);
+
+        let mut data = Buffer::new();
+        Mask("bonjour").to_terminal(&mut data).unwrap();
+        assert_eq!(data.data(), [0x1B, 0x58, 'b' as u8, 'o' as u8, 'n' as u8, 'j' as u8, 'o' as u8, 'u' as u8, 'r' as u8, 0x1B, 0x5F]);
     }
 
     #[test]
@@ -350,5 +383,16 @@ mod tests {
         assert_eq!(buf.data(), "bonjour le fichier".as_bytes());
 
         fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn test_screen_masking() {
+        let mut data = Buffer::new();
+        ScreenMasking::On.to_terminal(&mut data).unwrap();
+        assert_eq!(data.data(), [0x1B, 0x23, 0x20, 0x58]);
+
+        let mut data = Buffer::new();
+        ScreenMasking::Off.to_terminal(&mut data).unwrap();
+        assert_eq!(data.data(), [0x1B, 0x23, 0x20, 0x5F]);
     }
 }
