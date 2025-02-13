@@ -142,6 +142,13 @@ pub mod layout {
     pub const CSI_2_K: [u8; 4] = [ESC, CSI, 0x32, 0x4B];
 }
 
+pub mod misc {
+    pub const REP: u8 = 0x12; //p98
+    pub const BEEP: u8 = 0x07; //p98
+    pub const CURSOR_ON: u8 = 0x11; //p99
+    pub const CURSOR_OFF: u8 = 0x14; //p99
+}
+
 pub mod proto {
     pub const PRO1: u8 = 0x39;
     pub const PRO2: u8 = 0x3A;
@@ -168,9 +175,9 @@ pub use c0::*;
 pub use c1::*;
 pub use ss2::*;
 pub use layout::*;
+pub use misc::*;
 pub use proto::*;
 
-pub const BEEP: u8 = 0x07; //p98
 pub const SCROLL_DOWN: u8 = 0x0A; //p34
 pub const SCROLL_UP: u8 = 0x0B; //p34
 pub const CURSOR_ON: u8 = 0x11; //p99
@@ -186,7 +193,7 @@ pub const fn repeat(character: u8, count: u8) -> [u8; 3] {
     assert!(count > 0);
     assert!(count <= 64);
 
-    [character, 0x12, 0x40 + count - 1]
+    [character, REP, 0x40 + count - 1]
 }
 
 #[inline(always)]

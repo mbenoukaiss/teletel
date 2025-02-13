@@ -34,6 +34,7 @@ pub struct Context {
     pub esc: bool,
     pub page_mode: PageMode,
     pub visible_cursor: bool,
+    pub ignoring_sequences: bool,
 
     pub cursor_x: u8,
     pub cursor_y: u8,
@@ -58,6 +59,7 @@ impl Context {
             esc: false,
             page_mode: PageMode::Page,
             visible_cursor: false,
+            ignoring_sequences: false,
 
             cursor_x: 0,
             cursor_y: 1,
@@ -278,12 +280,29 @@ pub enum Csi {
     MoveLeft(u8),
     IncompleteSetCursor(Option<u8>, Option<u8>),
     SetCursor(u8, u8),
+    InsertSpacesFromCursorToEol,
+    EraseFromCursorToEos,
+    EraseFromSosToCursor,
+    ClearScreenKeepCursorPos,
+    EraseFromCursorToEol,
+    EraseFromSolToCursor,
+    EraseLine,
+    EraseAfterCursor(u8),
+    InsertFromCursor(u8), //rtic only
+    StartInsert,
+    EndInsert,
+    EraseRowsFromCursor(u8),
+    InsertRowsFromCursor(u8),
 }
 
 impl Parsable for Csi {
     fn new(ctx: &Context, byte: u8) -> Self {
         if !Self::supports(ctx, byte) {
             panic!("Unsupported or invalid CSI sequence starting with {:#04X}", byte);
+        }
+
+        if ctx.cursor_y == 0 {
+            panic!("CSI codes are not supported in row 0");
         }
 
         Csi::Incomplete
@@ -295,12 +314,12 @@ impl Parsable for Csi {
 
     fn consume(&mut self, _ctx: &Context, byte: u8) -> Self {
         match self {
-            Csi::Incomplete => {
-                if (0x30..=0x39).contains(&byte) {
-                    Csi::Quantified(byte - 0x30)
-                } else {
-                    panic!("Unsupported or invalid CSI sequence starting with {:#04X}", byte);
-                }
+            Csi::Incomplete => match byte {
+                CAN => Csi::InsertSpacesFromCursorToEol,
+                0x30..=0x39 => Csi::Quantified(byte - 0x30),
+                0x4A => Csi::EraseFromCursorToEos,
+                0x4B => Csi::EraseFromCursorToEol,
+                _ => panic!("Unsupported or invalid CSI sequence starting with {:#04X}", byte),
             }
             Csi::Quantified(value) => match byte {
                 0x30..=0x39 => Csi::Quantified(*value * 10 + (byte - 0x30)),
@@ -309,6 +328,18 @@ impl Parsable for Csi {
                 0x42 => Csi::MoveDown(*value),
                 0x43 => Csi::MoveRight(*value),
                 0x44 => Csi::MoveLeft(*value),
+                0x4A if *value == 0x00 => Csi::EraseFromCursorToEos,
+                0x4A if *value == 0x01 => Csi::EraseFromSosToCursor,
+                0x4A if *value == 0x02 => Csi::ClearScreenKeepCursorPos,
+                0x4B if *value == 0x00 => Csi::EraseFromCursorToEol,
+                0x4B if *value == 0x01 => Csi::EraseFromSolToCursor,
+                0x4B if *value == 0x02 => Csi::EraseLine,
+                0x50 => Csi::EraseAfterCursor(*value),
+                0x40 => Csi::InsertFromCursor(*value),
+                0x68 if *value == 0x04 => Csi::StartInsert,
+                0x6C if *value == 0x04 => Csi::EndInsert,
+                0x4D => Csi::EraseRowsFromCursor(*value),
+                0x4C => Csi::InsertRowsFromCursor(*value),
                 _ => panic!("Unsupported or invalid byte {:#04X} for quantified CSI sequence", byte),
             }
             Csi::IncompleteSetCursor(x, Some(y)) if (0x30..=0x39).contains(&byte) => Csi::IncompleteSetCursor(
@@ -346,6 +377,9 @@ pub enum EscapedSequence {
     StopUnderline,
     Mask,
     Unmask,
+    GetCursorPosition,
+    IncompleteStopIgnore,
+    Ignore(Option<bool>),
 }
 
 impl Parsable for EscapedSequence {
@@ -383,8 +417,13 @@ impl Parsable for EscapedSequence {
                 MASK => EscapedSequence::Mask,
                 UNMASK => EscapedSequence::Unmask,
                 CSI => EscapedSequence::Csi(Csi::new(ctx, byte)),
+                0x61 => EscapedSequence::GetCursorPosition,
+                0x25 => EscapedSequence::Ignore(None),
+                0x2F => EscapedSequence::IncompleteStopIgnore,
                 _ => panic!("Invalid escaped sequence starting with {:#04X}", byte),
             },
+            EscapedSequence::Ignore(None)  => EscapedSequence::Ignore(Some(byte != 0x40)),
+            EscapedSequence::IncompleteStopIgnore if byte == 0x3F  => EscapedSequence::Ignore(Some(false)),
             EscapedSequence::Csi(csi) => EscapedSequence::Csi(csi.consume(ctx, byte)),
             _ => panic!("Escaped sequence {:?} does not support additional bytes ({:#04X})", self, byte),
         }
@@ -394,6 +433,8 @@ impl Parsable for EscapedSequence {
         match self {
             EscapedSequence::Incomplete => false,
             EscapedSequence::Csi(csi) => csi.is_complete(),
+            EscapedSequence::IncompleteStopIgnore => false,
+            EscapedSequence::Ignore(None) => false,
             _ => true,
         }
     }
@@ -416,8 +457,13 @@ pub enum Sequence {
     SemiGraphicCharacter(SemiGraphicCharacter),
     SimpleCharacter(SimpleCharacter),
     MoveCursor(Direction),
+    CarriageReturn,
     RecordSeparator,
     ClearScreen,
+    Repeat(Option<u8>),
+    Beep,
+    ShowCursor,
+    HideCursor,
 }
 
 impl Parsable for Sequence {
@@ -450,10 +496,20 @@ impl Parsable for Sequence {
                         CURSOR_UP => Sequence::MoveCursor(Direction::Up),
                         _ => unreachable!(),
                     }
+                } else if byte == CR {
+                    Sequence::CarriageReturn
                 } else if byte == RS {
                     Sequence::RecordSeparator
                 } else if byte == FF {
                     Sequence::ClearScreen
+                } else if byte == REP {
+                    Sequence::Repeat(None)
+                } else if byte == BEEP {
+                    Sequence::Beep
+                } else if byte == CURSOR_ON {
+                    Sequence::ShowCursor
+                } else if byte == CURSOR_OFF {
+                    Sequence::HideCursor
                 } else {
                     panic!("Unsupported or invalid sequence starting with {:#04X}", byte)
                 }
@@ -463,6 +519,11 @@ impl Parsable for Sequence {
             Sequence::SpecialCharacter(special_character) => Sequence::SpecialCharacter(special_character.consume(ctx, byte)),
             Sequence::SemiGraphicCharacter(semi_graphic_character) => Sequence::SemiGraphicCharacter(semi_graphic_character.consume(ctx, byte)),
             Sequence::SimpleCharacter(simple_character) => Sequence::SimpleCharacter(simple_character.consume(ctx, byte)),
+            Sequence::Repeat(None) => if (0x40..=0x7F).contains(&byte) {
+                Sequence::Repeat(Some(byte - 0x40))
+            } else {
+                panic!("Repeat sequence expects a number between 0x40 and 0x7F, got {:#04X}", byte)
+            },
             _ => panic!("Sequence {:?} does not support additional bytes ({:#04X})", self, byte),
         }
     }
@@ -475,6 +536,7 @@ impl Parsable for Sequence {
             Sequence::SpecialCharacter(special_character) => special_character.is_complete(),
             Sequence::SemiGraphicCharacter(semi_graphic_character) => semi_graphic_character.is_complete(),
             Sequence::SimpleCharacter(simple_character) => simple_character.is_complete(),
+            Sequence::Repeat(None) => false,
             _ => true,
         }
     }

@@ -77,7 +77,7 @@ impl ToTerminal for SetCursor {
 
         //documented on page 95
         let mut written_bytes = 0;
-        written_bytes += [ESC, 0x5B].to_terminal(term)?;
+        written_bytes += [ESC, CSI].to_terminal(term)?;
         written_bytes += to_decimal(self.1).to_terminal(term)?;
         written_bytes += 0x3B.to_terminal(term)?;
         written_bytes += to_decimal(self.0).to_terminal(term)?;
@@ -115,7 +115,7 @@ impl ToTerminal for MoveCursor {
             };
 
             let mut written_bytes = 0;
-            written_bytes += [ESC, 0x5B].to_terminal(term)?;
+            written_bytes += [ESC, CSI].to_terminal(term)?;
             written_bytes += to_decimal(self.1).to_terminal(term)?;
             written_bytes += direction.to_terminal(term)?;
 
