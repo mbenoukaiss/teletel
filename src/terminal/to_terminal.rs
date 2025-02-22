@@ -99,11 +99,12 @@ mod tests {
     use std::cmp;
     use std::io::{Result as IoResult, Read};
     use std::time::Duration;
-    use crate::terminal::{Buffer, Context, Contextualized, ReadableTerminal};
+    use crate::parser::DisplayComponent;
+    use crate::terminal::{RawBuffer, Context, Contextualized, ReadableTerminal};
 
     #[test]
     fn test_to_terminal() {
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         0x01.to_terminal(&mut buf).unwrap();
         'A'.to_terminal(&mut buf).unwrap();
         [0x02, 0x03].to_terminal(&mut buf).unwrap();
@@ -123,32 +124,32 @@ mod tests {
 
     #[test]
     fn test_accents() {
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         'à'.to_terminal(&mut buf).unwrap();
 
         assert_eq!(buf.data(), &[0x19, 0x41, b'a']);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         'é'.to_terminal(&mut buf).unwrap();
 
         assert_eq!(buf.data(), &[0x19, 0x42, b'e']);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         'ç'.to_terminal(&mut buf).unwrap();
 
         assert_eq!(buf.data(), &[0x19, 0x4B, b'c']);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         'ç'.to_terminal(&mut buf).unwrap();
 
         assert_eq!(buf.data(), &[0x19, 0x4B, b'c']);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         "Bonjour ceci est une chaine sans accents".to_terminal(&mut buf).unwrap();
 
         assert_eq!(buf.data(), "Bonjour ceci est une chaine sans accents".as_bytes());
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         "àäâéèêëîïöôùüûç".to_terminal(&mut buf).unwrap();
 
         assert_eq!(buf.data(), &[
@@ -169,12 +170,12 @@ mod tests {
             0x19, 0x4B, b'c',
         ]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         "ÀÄÂÉÈÊËÎÏÖÔÙÜÛÇ".to_terminal(&mut buf).unwrap();
 
         assert_eq!(buf.data(), "AAAEEEEIIOOUUUC".as_bytes());
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         "œŒßẞ".to_terminal(&mut buf).unwrap();
 
         assert_eq!(buf.data(), &[
@@ -187,66 +188,66 @@ mod tests {
 
     #[test]
     fn test_special_characters() {
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '£'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x23]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '$'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x24]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '#'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x26]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '←'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x2C]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '↑'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x2D]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '→'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x2E]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '↓'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x2F]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '§'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x27]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '°'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x30]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '±'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x31]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '÷'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x38]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '¼'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x3C]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '½'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x3D]);
 
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         '¾'.to_terminal(&mut buf).unwrap();
         assert_eq!(buf.data(), &[0x19, 0x3E]);
     }
 
     #[test]
     fn test_closure() {
-        let mut buf = Buffer::new();
+        let mut buf = RawBuffer::new();
         (|term: &mut dyn WriteableTerminal| {
             let mut written_bytes = 0;
             written_bytes += 'A'.to_terminal(term)?;
@@ -267,7 +268,7 @@ mod tests {
     impl From<Vec<u8>> for MockReceiver {
         fn from(value: Vec<u8>) -> Self {
             Self {
-                ctx: Context,
+                ctx: Context::new(DisplayComponent::VGP5),
                 buffer: value,
             }
         }

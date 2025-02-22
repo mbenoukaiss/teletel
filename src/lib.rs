@@ -7,10 +7,11 @@ mod macros;
 mod error;
 mod wrapper;
 
-pub mod specifications;
+mod specifications;
 pub mod terminal;
 
 pub use error::Error;
 
+pub use specifications::*;
 pub use macros::*;
 pub use wrapper::*;

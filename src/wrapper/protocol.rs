@@ -1,3 +1,4 @@
+use crate::codes::SCREEN;
 use crate::specifications::codes::{ESC, PRO1, PRO2, PRO3, REQ_SPEED, RESET, RESP_SPEED, SEP, START, STOP};
 use crate::terminal::{BaudRate, ReadableTerminal, WriteableTerminal};
 use crate::Error;
@@ -42,7 +43,7 @@ pub trait ProtocolExtension: ReadableTerminal + WriteableTerminal {
     #[cfg(feature = "minitel2")]
     fn sleep(&mut self) -> Result<(), Error> {
         self.discard()?;
-        self.write_all(&[ESC, PRO3, START, 0x58, 0x41])?;
+        self.write_all(&[ESC, PRO3, START, SCREEN, 0x41])?;
         self.flush()?;
 
         expect_sequence!(self, [SEP, 0x72])
@@ -51,7 +52,7 @@ pub trait ProtocolExtension: ReadableTerminal + WriteableTerminal {
     #[cfg(feature = "minitel2")]
     fn wake(&mut self) -> Result<(), Error> {
         self.discard()?;
-        self.write_all(&[ESC, PRO3, STOP, 0x58, 0x41])?;
+        self.write_all(&[ESC, PRO3, STOP, SCREEN, 0x41])?;
         self.flush()?;
 
         expect_sequence!(self, [SEP, 0x72])

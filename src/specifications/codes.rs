@@ -1,11 +1,12 @@
 /// Activates the G1 character set which contains semi-graphic
 /// characters. Once activated the G1 character set remains active
-/// until deactivated by `SI` code.
+/// until deactivated by `SI` code. Also referred to as "Hors code"
 ///
 /// Semi-graphic codes can be easily created using the `sg!` macro.
 pub const SO: u8 = 0x0E;
 
 /// Deactivates the G1 character set and switch back to G0.
+/// Also referred to as "code"
 pub const SI: u8 = 0x0F;
 
 pub mod c0 {
@@ -108,10 +109,10 @@ pub mod ss2 {
 pub mod layout {
     use super::*;
 
-    pub const CURSOR_LEFT: u8 = 0x08;
-    pub const CURSOR_RIGHT: u8 = 0x09;
-    pub const CURSOR_DOWN: u8 = 0x0A;
-    pub const CURSOR_UP: u8 = 0x0B;
+    pub const BS: u8 = 0x08;
+    pub const HT: u8 = 0x09;
+    pub const LF: u8 = 0x0A;
+    pub const VT: u8 = 0x0B;
     pub const CR: u8 = 0x0D;
     pub const RS: u8 = 0x1E;
     pub const FF: u8 = 0x0C;
@@ -161,6 +162,8 @@ pub mod proto {
     pub const B4800: u8 = 0x76;
     #[cfg(feature = "minitel2")]
     pub const B9600: u8 = 0x7F;
+    pub const REQ_STATUS: u8 = 0x72;
+    pub const RESP_STATUS: u8 = 0x73;
     pub const REQ_SPEED: u8 = 0x74; //p141
     pub const RESP_SPEED: u8 = 0x75; //p141
     pub const SCROLL: u8 = 0x43; //p143
@@ -169,6 +172,7 @@ pub mod proto {
     pub const STATE_REQUEST: u8 = 0x72; //p143
     pub const STATE_RESPONSE: u8 = 0x73; //p143
     pub const RESET: u8 = 0x7F; //p145
+    pub const SCREEN: u8 = 0x58;
 }
 
 pub use c0::*;

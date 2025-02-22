@@ -11,20 +11,17 @@ use crate::specifications::codes::{B1200, B300, B4800, ESC, PRO2, PROG};
 use crate::specifications::codes::B9600;
 
 pub use to_terminal::ToTerminal;
-pub use buffer::Buffer;
+pub use buffer::{Buffer, RawBuffer};
 pub use file::FileReceiver;
 #[cfg(feature = "serial")]
 pub use serial::SerialTerminal;
-
-//does not contain anything for now but will
-//eventually hold the minitel state
-pub struct Context;
+pub use crate::parser::Context;
 
 pub trait Contextualized {
     fn ctx(&self) -> &Context;
 }
 
-pub trait ReadableTerminal: Contextualized + Read {
+pub trait ReadableTerminal: Read {
     fn discard(&mut self) -> IoResult<()> {
         //todo: stop using this function, put the current buffer
         // aside and just read the protocol sequences we need
@@ -70,7 +67,7 @@ pub trait ReadableTerminal: Contextualized + Read {
     }
 }
 
-pub trait WriteableTerminal: Contextualized + Write {}
+pub trait WriteableTerminal: Write {}
 
 #[derive(Eq, PartialEq, Copy, Clone)]
 #[repr(u16)]

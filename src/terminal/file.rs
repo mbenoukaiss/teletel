@@ -1,24 +1,26 @@
 use std::fs::{File, OpenOptions};
 use std::io::{Result as IoResult, Write};
 use std::path::{Path};
+use crate::parser::{DisplayComponent, Parser};
 use crate::terminal::{Context, Contextualized, ToTerminal, WriteableTerminal};
 
 pub struct FileReceiver {
-    ctx: Context,
     file: File,
+    parser: Parser,
 }
 
 impl FileReceiver {
     pub fn new<P: AsRef<Path>>(path: P) -> IoResult<Self> {
         let file = OpenOptions::new()
-            .create_new(true)
+            .create(true)
+            .truncate(true)
             .write(true)
             .append(false)
             .open(path)?;
 
         Ok(Self {
-            ctx: Context,
             file,
+            parser: Parser::new(DisplayComponent::VGP5),
         })
     }
 
@@ -30,13 +32,14 @@ impl FileReceiver {
 
 impl Contextualized for FileReceiver {
     fn ctx(&self) -> &Context {
-        &self.ctx
+        self.parser.ctx()
     }
 }
 
 impl Write for FileReceiver {
     #[inline(always)]
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.parser.consume_all(buf);
         self.file.write(buf)
     }
 
@@ -59,16 +62,16 @@ mod tests {
         let path = format!("{}/test_file.vdt", env::temp_dir().to_str().unwrap());
         let mut file_receiver = FileReceiver::new(&path).unwrap();
 
-        file_receiver.write(&[0x01]).unwrap();
-        file_receiver.write(&[0x02, 0x03]).unwrap();
-        file_receiver.write(&[0x04, 0x05, 0x06]).unwrap();
+        file_receiver.write(&[b'a']).unwrap();
+        file_receiver.write(&[b'b', b'c']).unwrap();
+        file_receiver.write(&[b'd', b'e', b'f']).unwrap();
         file_receiver.flush().unwrap();
 
         let mut file = File::open(&path).unwrap();
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).unwrap();
 
-        assert_eq!(buffer, [0x01, 0x02, 0x03, 0x04, 0x05, 0x06]);
+        assert_eq!(buffer, [b'a', b'b', b'c', b'd', b'e', b'f']);
 
         fs::remove_file(&path).unwrap();
     }

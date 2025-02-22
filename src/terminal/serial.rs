@@ -1,16 +1,17 @@
 use crate::error::Error;
 use crate::protocol::{ProtocolExtension, SpeedAwareTerminal};
 use crate::specifications::codes::{FF, PRO2, PROG};
-use crate::terminal::{BaudRate, Context, Contextualized, ReadableTerminal, ToTerminal, WriteableTerminal};
+use crate::terminal::{BaudRate, Contextualized, ReadableTerminal, ToTerminal, WriteableTerminal};
 use serial2::{CharSize, FlowControl, Parity, SerialPort, Settings, StopBits};
 use std::io::{ErrorKind, Read, Result as IoResult, Write};
 use std::time::Duration;
+use crate::parser::{Context, DisplayComponent, Parser};
 
 pub struct SerialTerminal {
-    ctx: Context,
     path: String,
     baud_rate: BaudRate,
     port: SerialPort,
+    parser: Parser,
 }
 
 impl SerialTerminal {
@@ -22,10 +23,10 @@ impl SerialTerminal {
         };
 
         let mut term = SerialTerminal {
-            ctx: Context,
             path: path.as_ref().to_owned(),
             baud_rate: default_baud_rate,
             port: SerialTerminal::connect(path, default_baud_rate)?,
+            parser: Parser::new(DisplayComponent::VGP5),
         };
 
         if baud_rate.is_none() {
@@ -80,6 +81,7 @@ impl Read for SerialTerminal {
 impl Write for SerialTerminal {
     #[inline(always)]
     fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+        self.parser.consume_all(buf);
         self.port.write(buf)
     }
 
@@ -91,7 +93,7 @@ impl Write for SerialTerminal {
 
 impl Contextualized for SerialTerminal {
     fn ctx(&self) -> &Context {
-        &self.ctx
+        self.parser.ctx()
     }
 }
 
