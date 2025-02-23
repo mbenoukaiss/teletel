@@ -1,0 +1,13 @@
+[package]
+name = "teletel-protocol"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[features]
+default = []
+minitel1b = []
+minitel2 = []
+colors = []
+strict = []

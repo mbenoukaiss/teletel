@@ -1,0 +1,18 @@
+[package]
+name = "teletel"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+teletel-derive = { path = "../teletel-derive" }
+teletel-protocol = { path = "../teletel-protocol" }
+serial2 = { version = "0.2.28", optional = true }
+unidecode = "0.3.0"
+
+[features]
+default = []
+minitel1b = ["teletel-protocol/minitel1b"]
+minitel2 = ["teletel-protocol/minitel2"]
+colors = ["teletel-protocol/colors"]
+serial = ["dep:serial2"]
+strict = ["teletel-protocol/strict"]

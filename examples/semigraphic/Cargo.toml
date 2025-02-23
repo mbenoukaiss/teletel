@@ -1,0 +1,8 @@
+[package]
+name = "example-semigraphic"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+teletel = { path = "../../teletel", features = ["minitel2", "serial", "strict"] }

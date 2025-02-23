@@ -1,5 +1,6 @@
 /.idea
-/target
-/NOTES.md
+target
 *:Zone.Identifier
 *.ignore.*
+
+/NOTES.md
