@@ -1,6 +1,12 @@
-use std::fmt::{Debug, Formatter, Result as FmtResult, Write};
+use std::fmt::{Debug, Display, Formatter, Result as FmtResult, Write};
 use std::mem;
 use crate::specifications::codes::*;
+
+macro_rules! err {
+    ($($arg:tt)*) => {
+        return Err(Error::new(format!($($arg)*)))
+    }
+}
 
 /// - If G2 character set is requested but the following code does not exist in G2 a
 ///   lower horizontal line will be displayed instead except if it's contained in C0 then
@@ -18,6 +24,25 @@ use crate::specifications::codes::*;
 /// - Double height, width or size characters are displayed from the bottom left corner
 
 #[derive(Eq, PartialEq, Debug)]
+pub struct Error {
+    msg: String,
+}
+
+impl Error {
+    fn new<S: Into<String>>(msg: S) -> Error {
+        Error {
+            msg: msg.into(),
+        }
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "{}", self.msg)
+    }
+}
+
+#[derive(Eq, PartialEq, Debug)]
 pub enum DisplayComponent {
     VGP2,
     VGP5,
@@ -30,13 +55,13 @@ pub enum PageMode {
 }
 
 trait ToCharacter {
-    fn to_character(&self) -> char;
+    fn to_character(&self) -> Result<char, Error>;
 }
 
-trait Parsable {
-    fn new(ctx: &Context, byte: u8) -> Self;
+trait Parsable: Sized {
+    fn new(ctx: &Context, byte: u8) -> Result<Self, Error>;
     fn supports(ctx: &Context, byte: u8) -> bool;
-    fn consume(&mut self, ctx: &Context, byte: u8) -> Self;
+    fn consume(&mut self, ctx: &Context, byte: u8) -> Result<Self, Error>;
     fn is_complete(&self) -> bool;
 }
 
@@ -48,11 +73,11 @@ pub enum CharacterSet {
 }
 
 impl Parsable for CharacterSet {
-    fn new(_ctx: &Context, byte: u8) -> Self {
+    fn new(_ctx: &Context, byte: u8) -> Result<Self, Error> {
         match byte {
-            SI => CharacterSet::G0,
-            SO => CharacterSet::G1,
-            invalid => panic!("Invalid character set {:#04X}", invalid),
+            SI => Ok(CharacterSet::G0),
+            SO => Ok(CharacterSet::G1),
+            invalid => err!("Invalid character set {:#04X}", invalid),
         }
     }
 
@@ -60,8 +85,8 @@ impl Parsable for CharacterSet {
         byte == SI || byte == SO
     }
 
-    fn consume(&mut self, _ctx: &Context, byte: u8) -> Self {
-        panic!("Character set {:?} does not support more bytes ({:#04X})", self, byte);
+    fn consume(&mut self, _ctx: &Context, byte: u8) -> Result<Self, Error> {
+        err!("Character set {:?} does not support more bytes ({:#04X})", self, byte);
     }
 
     fn is_complete(&self) -> bool {
@@ -74,20 +99,20 @@ impl Parsable for CharacterSet {
 struct SimpleCharacter(u8);
 
 impl Parsable for SimpleCharacter {
-    fn new(ctx: &Context, byte: u8) -> Self {
+    fn new(ctx: &Context, byte: u8) -> Result<Self, Error> {
         if !Self::supports(ctx, byte) {
-            panic!("Invalid simple character {:#04X}", byte);
+            err!("Invalid simple character {:#04X}", byte);
         }
 
-        SimpleCharacter(byte)
+        Ok(SimpleCharacter(byte))
     }
 
     fn supports(ctx: &Context, byte: u8) -> bool {
         ctx.attributes.character_set == CharacterSet::G0 && (0x20..=0x7F).contains(&byte)
     }
 
-    fn consume(&mut self, _ctx: &Context, byte: u8) -> Self {
-        panic!("Simple character {:?} does not support more bytes ({:#04X})", self, byte);
+    fn consume(&mut self, _ctx: &Context, byte: u8) -> Result<Self, Error> {
+        err!("Simple character {:?} does not support more bytes ({:#04X})", self, byte);
     }
 
     fn is_complete(&self) -> bool {
@@ -96,8 +121,8 @@ impl Parsable for SimpleCharacter {
 }
 
 impl ToCharacter for SimpleCharacter {
-    fn to_character(&self) -> char {
-        self.0 as char
+    fn to_character(&self) -> Result<char, Error> {
+        Ok(self.0 as char)
     }
 }
 
@@ -106,20 +131,28 @@ impl ToCharacter for SimpleCharacter {
 struct SemiGraphicCharacter(u8);
 
 impl Parsable for SemiGraphicCharacter {
-    fn new(ctx: &Context, byte: u8) -> Self {
+    fn new(ctx: &Context, mut byte: u8) -> Result<Self, Error> {
         if !Self::supports(ctx, byte) {
-            panic!("Invalid semi-graphic character {:#04X}", byte);
+            err!("Invalid semi-graphic character {:#04X}", byte);
         }
 
-        SemiGraphicCharacter(byte)
+        if byte == 0x7F {
+            byte = 0x5F; //p98
+        } else if (0x40..=0x5E).contains(&byte) {
+            //characters from 0x40 to 0x5E are not documented and are left empty in
+            //the table p101, but they correspond to characters from 0x60 to 0x7E
+            byte += 0x20;
+        }
+
+        Ok(SemiGraphicCharacter(byte))
     }
 
     fn supports(ctx: &Context, byte: u8) -> bool {
-        ctx.attributes.character_set == CharacterSet::G1 && ((0x20..=0x3F).contains(&byte) || (0x5F..=0x7F).contains(&byte))
+        ctx.attributes.character_set == CharacterSet::G1 && (0x20..=0x7F).contains(&byte)
     }
 
-    fn consume(&mut self, _ctx: &Context, byte: u8) -> Self {
-        panic!("Semi-graphic character {:?} does not support more bytes ({:#04X})", self, byte);
+    fn consume(&mut self, _ctx: &Context, byte: u8) -> Result<Self, Error> {
+        err!("Semi-graphic character {:?} does not support more bytes ({:#04X})", self, byte);
     }
 
     fn is_complete(&self) -> bool {
@@ -162,24 +195,24 @@ enum SpecialCharacter {
 }
 
 impl Parsable for SpecialCharacter {
-    fn new(ctx: &Context, byte: u8) -> Self {
+    fn new(ctx: &Context, byte: u8) -> Result<Self, Error> {
         if !Self::supports(ctx, byte) {
-            panic!("Invalid special character {:#04X}", byte);
+            err!("Invalid special character {:#04X}", byte);
         }
 
         if ctx.attributes.character_set == CharacterSet::G1 {
-            panic!("Special characters are not supported in G1");
+            err!("Special characters are not supported in G1");
         }
 
-        SpecialCharacter::Incomplete
+        Ok(SpecialCharacter::Incomplete)
     }
 
     fn supports(_ctx: &Context, byte: u8) -> bool {
         byte == SS2
     }
 
-    fn consume(&mut self, ctx: &Context, byte: u8) -> Self {
-        match self {
+    fn consume(&mut self, ctx: &Context, byte: u8) -> Result<Self, Error> {
+        let result = match self {
             SpecialCharacter::Incomplete => match byte {
                 GRAVE => SpecialCharacter::Grave(None),
                 ACUTE => SpecialCharacter::Acute(None),
@@ -203,31 +236,33 @@ impl Parsable for SpecialCharacter {
                 ONE_QUARTER => SpecialCharacter::OneQuarter,
                 ONE_HALF => SpecialCharacter::OneHalf,
                 THREE_QUARTERS => SpecialCharacter::ThreeQuarters,
-                _ => panic!("Invalid special character {:#04X}", byte),
+                _ => err!("Invalid special character {:#04X}", byte),
             },
-            SpecialCharacter::Grave(None) => match byte as char {
-                'a' | 'e' | 'u' => SpecialCharacter::Grave(Some(byte)),
-                _ => panic!("Invalid character for grave accent {:#04X}", byte),
+            SpecialCharacter::Grave(None) => match byte {
+                b'a' | b'e' | b'u' => SpecialCharacter::Grave(Some(byte)),
+                _ => err!("Invalid character for grave accent {:#04X}", byte),
             },
-            SpecialCharacter::Acute(None) => match byte as char {
-                'e' => SpecialCharacter::Acute(Some(byte)),
-                _ => panic!("Invalid character for acute accent {:#04X}", byte),
+            SpecialCharacter::Acute(None) => match byte {
+                b'e' => SpecialCharacter::Acute(Some(byte)),
+                _ => err!("Invalid character for acute accent {:#04X}", byte),
             },
-            SpecialCharacter::Circumflex(None) => match byte as char {
-                'a' | 'e' | 'i' | 'o' | 'u' => SpecialCharacter::Circumflex(Some(byte)),
-                _ => panic!("Invalid character for circumflex accent {:#04X}", byte),
+            SpecialCharacter::Circumflex(None) => match byte {
+                b'a' | b'e' | b'i' | b'o' | b'u' => SpecialCharacter::Circumflex(Some(byte)),
+                _ => err!("Invalid character for circumflex accent {:#04X}", byte),
             },
-            SpecialCharacter::Diaeresis(None) => match byte as char {
-                'e' | 'i' => SpecialCharacter::Diaeresis(Some(byte)),
-                'a' | 'o' | 'u' if ctx.display_component == DisplayComponent::VGP5 => SpecialCharacter::Diaeresis(Some(byte)),
-                _ => panic!("Invalid character for diaeresis accent {:#04X}", byte),
+            SpecialCharacter::Diaeresis(None) => match byte {
+                b'e' | b'i' => SpecialCharacter::Diaeresis(Some(byte)),
+                b'a' | b'o' | b'u' if ctx.display_component == DisplayComponent::VGP5 => SpecialCharacter::Diaeresis(Some(byte)),
+                _ => err!("Invalid character for diaeresis {:#04X}", byte),
             },
-            SpecialCharacter::Cedilla(None) => match byte as char {
-                'c' => SpecialCharacter::Cedilla(Some(byte)),
-                _ => panic!("Invalid character for cedilla {:#04X}", byte),
+            SpecialCharacter::Cedilla(None) => match byte {
+                b'c' => SpecialCharacter::Cedilla(Some(byte)),
+                _ => err!("Invalid character for cedilla {:#04X}", byte),
             },
-            _ => panic!("Escaped sequence {:?} does not support more bytes ({:#04X})", self, byte),
-        }
+            _ => err!("Escaped sequence {:?} does not support more bytes ({:#04X})", self, byte),
+        };
+
+        Ok(result)
     }
 
     fn is_complete(&self) -> bool {
@@ -244,17 +279,17 @@ impl Parsable for SpecialCharacter {
 }
 
 impl ToCharacter for SpecialCharacter {
-    fn to_character(&self) -> char {
-        match self {
+    fn to_character(&self) -> Result<char, Error> {
+        let char = match self {
             SpecialCharacter::Grave(Some(byte)) => match byte {
                 b'a' => 'à',
                 b'e' => 'è',
                 b'u' => 'ù',
-                _ => panic!("Invalid character for grave accent {:#04X}", byte),
+                _ => err!("Invalid character for grave accent {:#04X}", byte),
             },
             SpecialCharacter::Acute(Some(byte)) => match byte {
                 b'e' => 'é',
-                _ => panic!("Invalid character for acute accent {:#04X}", byte),
+                _ => err!("Invalid character for acute accent {:#04X}", byte),
             },
             SpecialCharacter::Circumflex(Some(byte)) => match byte {
                 b'a' => 'â',
@@ -262,7 +297,7 @@ impl ToCharacter for SpecialCharacter {
                 b'i' => 'î',
                 b'o' => 'ô',
                 b'u' => 'û',
-                _ => panic!("Invalid character for circumflex accent {:#04X}", byte),
+                _ => err!("Invalid character for circumflex accent {:#04X}", byte),
             },
             SpecialCharacter::Diaeresis(Some(byte)) => match byte {
                 b'a' => 'ä',
@@ -270,11 +305,11 @@ impl ToCharacter for SpecialCharacter {
                 b'i' => 'ï',
                 b'o' => 'ö',
                 b'u' => 'ü',
-                _ => panic!("Invalid character for diaeresis accent {:#04X}", byte),
+                _ => err!("Invalid character for diaeresis {:#04X}", byte),
             },
             SpecialCharacter::Cedilla(Some(byte)) => match byte {
                 b'c' => 'ç',
-                _ => panic!("Invalid character for cedilla {:#04X}", byte),
+                _ => err!("Invalid character for cedilla {:#04X}", byte),
             },
             SpecialCharacter::LowerOE => 'œ',
             SpecialCharacter::UpperOE => 'Œ',
@@ -293,8 +328,10 @@ impl ToCharacter for SpecialCharacter {
             SpecialCharacter::OneQuarter => '¼',
             SpecialCharacter::OneHalf => '½',
             SpecialCharacter::ThreeQuarters => '¾',
-            _ => panic!("Special character {:?} is not complete", self),
-        }
+            _ => err!("Special character {:?} is not complete", self),
+        };
+
+        Ok(char)
     }
 }
 
@@ -312,46 +349,50 @@ enum Protocol {
 }
 
 impl Parsable for Protocol {
-    fn new(_ctx: &Context, byte: u8) -> Self {
-        match byte {
+    fn new(_ctx: &Context, byte: u8) -> Result<Self, Error> {
+        let result = match byte {
             PRO1 => Protocol::Pro1,
             PRO2 => Protocol::Pro2,
             PRO3 => Protocol::Pro3,
-            _ => panic!("Invalid protocol sequence starting with {:#04X}", byte)
-        }
+            _ => err!("Invalid protocol sequence starting with {:#04X}", byte)
+        };
+
+        Ok(result)
     }
 
     fn supports(_ctx: &Context, byte: u8) -> bool {
         byte == PRO1 || byte == PRO2 || byte == PRO3
     }
 
-    fn consume(&mut self, _ctx: &Context, byte: u8) -> Self {
-        match self {
+    fn consume(&mut self, _ctx: &Context, byte: u8) -> Result<Self, Error> {
+        let result = match self {
             Protocol::Pro1 => match byte {
                 RESET => Protocol::Reset,
                 REQ_SPEED => Protocol::RequestSpeed,
-                _ => panic!("Unsupported or invalid PRO1 sequence starting with {:#04X}", byte)
+                _ => err!("Unsupported or invalid PRO1 sequence starting with {:#04X}", byte)
             },
             Protocol::Pro2 => match byte {
                 PROG => Protocol::SetSpeed(None),
-                _ => panic!("Unsupported or invalid PRO2 sequence starting with {:#04X}", byte)
+                _ => err!("Unsupported or invalid PRO2 sequence starting with {:#04X}", byte)
             },
             Protocol::Pro3 => match byte {
                 START => Protocol::Toggle(true),
                 STOP => Protocol::Toggle(false),
-                _ => panic!("Unsupported or invalid PRO3 sequence starting with {:#04X}", byte)
+                _ => err!("Unsupported or invalid PRO3 sequence starting with {:#04X}", byte)
             },
             Protocol::SetSpeed(None) => Protocol::SetSpeed(Some(byte)),
             Protocol::Toggle(value) => match byte {
                 SCREEN => Protocol::ToggleScreen(*value),
-                _ => panic!("Unsupported or invalid protocol start/stop sequence starting with {:#04X}", byte)
+                _ => err!("Unsupported or invalid protocol start/stop sequence starting with {:#04X}", byte)
             },
             Protocol::ToggleScreen(value) => match byte {
                 0x41 => Protocol::Sleep(*value),
-                _ => panic!("Unsupported or invalid protocol toggle screen sequence starting with {:#04X}", byte)
+                _ => err!("Unsupported or invalid protocol toggle screen sequence starting with {:#04X}", byte)
             }
-            _ => panic!("Protocol sequence {:?} does not support additional bytes ({:#04X})", self, byte),
-        }
+            _ => err!("Protocol sequence {:?} does not support additional bytes ({:#04X})", self, byte),
+        };
+
+        Ok(result)
     }
 
     fn is_complete(&self) -> bool {
@@ -385,30 +426,30 @@ enum Csi {
 }
 
 impl Parsable for Csi {
-    fn new(ctx: &Context, byte: u8) -> Self {
+    fn new(ctx: &Context, byte: u8) -> Result<Self, Error> {
         if !Self::supports(ctx, byte) {
-            panic!("Unsupported or invalid CSI sequence starting with {:#04X}", byte);
+            err!("Unsupported or invalid CSI sequence starting with {:#04X}", byte);
         }
 
         if ctx.cursor_y == 0 {
-            panic!("CSI codes are not supported in row 0"); //p95
+            err!("CSI codes are not supported in row 0"); //p95
         }
 
-        Csi::Incomplete
+        Ok(Csi::Incomplete)
     }
 
     fn supports(_ctx: &Context, byte: u8) -> bool {
         byte == CSI
     }
 
-    fn consume(&mut self, ctx: &Context, byte: u8) -> Self {
-        match self {
+    fn consume(&mut self, ctx: &Context, byte: u8) -> Result<Self, Error> {
+        let result = match self {
             Csi::Incomplete => match byte {
                 CAN => Csi::InsertSpacesFromCursorToEol,
                 0x30..=0x39 => Csi::Quantified(byte - 0x30),
                 0x4A => Csi::ClearFromCursorToEos,
                 0x4B => Csi::ClearFromCursorToEol,
-                _ => panic!("Unsupported or invalid CSI sequence starting with {:#04X}", byte),
+                _ => err!("Unsupported or invalid CSI sequence starting with {:#04X}", byte),
             }
             Csi::Quantified(value) => match byte {
                 0x30..=0x39 => Csi::Quantified(*value * 10 + (byte - 0x30)),
@@ -429,7 +470,7 @@ impl Parsable for Csi {
                 0x6C if *value == 0x04 => Csi::EndInsert,
                 0x4D => Csi::EraseRowsFromCursor(*value),
                 0x4C => Csi::InsertRowsFromCursor(*value),
-                _ => panic!("Unsupported or invalid byte {:#04X} for quantified CSI sequence", byte),
+                _ => err!("Unsupported or invalid byte {:#04X} for quantified CSI sequence", byte),
             }
             Csi::IncompleteSetCursor(x, Some(y)) if (0x30..=0x39).contains(&byte) => Csi::IncompleteSetCursor(
                 Some(x.unwrap_or(0) * 10 + (byte - 0x30)),
@@ -438,13 +479,15 @@ impl Parsable for Csi {
             Csi::IncompleteSetCursor(Some(x), Some(y)) if byte == 0x48 => if (1..=ctx.screen_width).contains(x) && (1..=ctx.screen_height).contains(y) {
                 Csi::SetCursor(*x, *y)
             } else {
-                panic!("Invalid cursor position ({}, {}) for screen size ({}, {})", x, y, ctx.screen_width, ctx.screen_height)
+                err!("Invalid cursor position ({}, {}) for screen size ({}, {})", x, y, ctx.screen_width, ctx.screen_height)
             },
 
             //TODO: implement other CSI sequences
             //TODO: implement end-of-page 95 recommendations but not here
-            _ => panic!("Unsupported or invalid byte {:#04X} for sequence {:?}", byte, self),
-        }
+            _ => err!("Unsupported or invalid byte {:#04X} for sequence {:?}", byte, self),
+        };
+
+        Ok(result)
     }
 
     fn is_complete(&self) -> bool {
@@ -476,20 +519,20 @@ enum EscapedSequence {
 }
 
 impl Parsable for EscapedSequence {
-    fn new(ctx: &Context, byte: u8) -> Self {
+    fn new(ctx: &Context, byte: u8) -> Result<Self, Error> {
         if !Self::supports(ctx, byte) {
-            panic!("Unsupported or invalid escaped sequence starting with {:#04X}", byte);
+            err!("Unsupported or invalid escaped sequence starting with {:#04X}", byte);
         }
 
-        EscapedSequence::Incomplete
+        Ok(EscapedSequence::Incomplete)
     }
 
     fn supports(_ctx: &Context, byte: u8) -> bool {
         byte == ESC
     }
 
-    fn consume(&mut self, ctx: &Context, byte: u8) -> Self {
-        match self {
+    fn consume(&mut self, ctx: &Context, byte: u8) -> Result<Self, Error> {
+        let result = match self {
             EscapedSequence::Incomplete => match byte {
                 0x40..=0x47 => EscapedSequence::Foreground(byte ^ FOREGROUND),
                 0x50..=0x57 => EscapedSequence::Background(byte ^ BACKGROUND),
@@ -505,26 +548,28 @@ impl Parsable for EscapedSequence {
                 STOP_UNDERLINE => EscapedSequence::Underline(false),
                 MASK => EscapedSequence::Mask(true),
                 UNMASK => EscapedSequence::Mask(false),
-                PRO1 | PRO2 | PRO3 => EscapedSequence::Protocol(Protocol::new(ctx, byte)),
-                CSI => EscapedSequence::Csi(Csi::new(ctx, byte)),
+                PRO1 | PRO2 | PRO3 => EscapedSequence::Protocol(Protocol::new(ctx, byte)?),
+                CSI => EscapedSequence::Csi(Csi::new(ctx, byte)?),
                 0x61 => EscapedSequence::GetCursorPosition,
                 0x25 => EscapedSequence::Ignore(None),
                 0x2F => EscapedSequence::IncompleteStopIgnore,
                 0x23 => EscapedSequence::IncompleteScreenMasking(1),
-                _ => panic!("Invalid escaped sequence starting with {:#04X}", byte),
+                _ => err!("Invalid escaped sequence starting with {:#04X}", byte),
             },
             EscapedSequence::IncompleteStopIgnore if byte == 0x3F  => EscapedSequence::Ignore(Some(false)),
             EscapedSequence::Ignore(None) => EscapedSequence::Ignore(Some(byte != 0x40)),
-            EscapedSequence::Csi(csi) => EscapedSequence::Csi(csi.consume(ctx, byte)),
-            EscapedSequence::Protocol(pro) => EscapedSequence::Protocol(pro.consume(ctx, byte)),
+            EscapedSequence::Csi(csi) => EscapedSequence::Csi(csi.consume(ctx, byte)?),
+            EscapedSequence::Protocol(pro) => EscapedSequence::Protocol(pro.consume(ctx, byte)?),
             EscapedSequence::IncompleteScreenMasking(1) if byte == 0x20 => EscapedSequence::IncompleteScreenMasking(2),
             EscapedSequence::IncompleteScreenMasking(2) => match byte {
                 MASK => EscapedSequence::ScreenMasking(true),
                 UNMASK => EscapedSequence::ScreenMasking(false),
-                _ => panic!("Invalid screen masking byte ({:#04X}), expected 0x58 or 0x5F", byte),
+                _ => err!("Invalid screen masking byte ({:#04X}), expected 0x58 or 0x5F", byte),
             },
-            _ => panic!("Escaped sequence {:?} does not support additional bytes ({:#04X})", self, byte),
-        }
+            _ => err!("Escaped sequence {:?} does not support additional bytes ({:#04X})", self, byte),
+        };
+
+        Ok(result)
     }
 
     fn is_complete(&self) -> bool {
@@ -567,27 +612,27 @@ enum Sequence {
 }
 
 impl Parsable for Sequence {
-    fn new(_ctx: &Context, _byte: u8) -> Self {
-        Sequence::Incomplete
+    fn new(_ctx: &Context, _byte: u8) -> Result<Self, Error> {
+        Ok(Sequence::Incomplete)
     }
 
     fn supports(_ctx: &Context, _byte: u8) -> bool {
         true
     }
 
-    fn consume(&mut self, ctx: &Context, byte: u8) -> Self {
-        match self {
+    fn consume(&mut self, ctx: &Context, byte: u8) -> Result<Self, Error> {
+        let result = match self {
             Sequence::Incomplete => {
                 if EscapedSequence::supports(ctx, byte) {
-                    Sequence::Escaped(EscapedSequence::new(ctx, byte))
+                    Sequence::Escaped(EscapedSequence::new(ctx, byte)?)
                 } else if CharacterSet::supports(ctx, byte) {
-                    Sequence::SetCharacterSet(CharacterSet::new(ctx, byte))
+                    Sequence::SetCharacterSet(CharacterSet::new(ctx, byte)?)
                 } else if SpecialCharacter::supports(ctx, byte) {
-                    Sequence::SpecialCharacter(SpecialCharacter::new(ctx, byte))
+                    Sequence::SpecialCharacter(SpecialCharacter::new(ctx, byte)?)
                 } else if SemiGraphicCharacter::supports(ctx, byte) {
-                    Sequence::SemiGraphicCharacter(SemiGraphicCharacter::new(ctx, byte))
+                    Sequence::SemiGraphicCharacter(SemiGraphicCharacter::new(ctx, byte)?)
                 } else if SimpleCharacter::supports(ctx, byte) {
-                    Sequence::SimpleCharacter(SimpleCharacter::new(ctx, byte))
+                    Sequence::SimpleCharacter(SimpleCharacter::new(ctx, byte)?)
                 } else if (BS..=VT).contains(&byte) {
                     match byte {
                         BS => Sequence::MoveCursor(Direction::Left),
@@ -613,23 +658,25 @@ impl Parsable for Sequence {
                 } else if byte == CURSOR_OFF {
                     Sequence::VisibleCursor(false)
                 } else {
-                    panic!("Unsupported or invalid sequence starting with {:#04X}", byte)
+                    err!("Unsupported or invalid sequence starting with {:#04X}", byte)
                 }
             }
-            Sequence::Escaped(escaped_sequence) => Sequence::Escaped(escaped_sequence.consume(ctx, byte)),
-            Sequence::SetCharacterSet(character_set) => Sequence::SetCharacterSet(character_set.consume(ctx, byte)),
-            Sequence::SpecialCharacter(special_character) => Sequence::SpecialCharacter(special_character.consume(ctx, byte)),
-            Sequence::SemiGraphicCharacter(semi_graphic_character) => Sequence::SemiGraphicCharacter(semi_graphic_character.consume(ctx, byte)),
-            Sequence::SimpleCharacter(simple_character) => Sequence::SimpleCharacter(simple_character.consume(ctx, byte)),
+            Sequence::Escaped(escaped_sequence) => Sequence::Escaped(escaped_sequence.consume(ctx, byte)?),
+            Sequence::SetCharacterSet(character_set) => Sequence::SetCharacterSet(character_set.consume(ctx, byte)?),
+            Sequence::SpecialCharacter(special_character) => Sequence::SpecialCharacter(special_character.consume(ctx, byte)?),
+            Sequence::SemiGraphicCharacter(semi_graphic_character) => Sequence::SemiGraphicCharacter(semi_graphic_character.consume(ctx, byte)?),
+            Sequence::SimpleCharacter(simple_character) => Sequence::SimpleCharacter(simple_character.consume(ctx, byte)?),
             Sequence::SubSection(None, None) if (0x40..=0x7F).contains(&byte) => Sequence::SubSection(Some(byte - 0x40), None),
             Sequence::SubSection(Some(x), None) if (0x40..=0x7F).contains(&byte) => Sequence::SubSection(Some(*x), Some(byte - 0x40)),
             Sequence::Repeat(None) => if (0x40..=0x7F).contains(&byte) {
                 Sequence::Repeat(Some(byte - 0x40))
             } else {
-                panic!("Repeat sequence expects a number between 0x40 and 0x7F, got {:#04X}", byte)
+                err!("Repeat sequence expects a number between 0x40 and 0x7F, got {:#04X}", byte)
             },
-            _ => panic!("Sequence {:?} does not support additional bytes ({:#04X})", self, byte),
-        }
+            _ => err!("Sequence {:?} does not support additional bytes ({:#04X})", self, byte),
+        };
+
+        Ok(result)
     }
 
     fn is_complete(&self) -> bool {
@@ -1042,31 +1089,31 @@ impl Context {
         }
     }
 
-    fn consume(&mut self, sequence: Sequence) {
+    fn consume(&mut self, sequence: &Sequence) -> Result<(), Error> {
         if self.ignore_sequences && !matches!(sequence, Sequence::Escaped(EscapedSequence::Ignore(Some(false)))) {
-            return;
+            return Ok(());
         }
 
         match sequence {
             Sequence::Incomplete => {}
             Sequence::Escaped(esc) => match esc {
                 //todo: seulement en mode alphabétique sinon on applique direct?
-                EscapedSequence::Background(color) => self.pending_attributes.set_background(color),
-                EscapedSequence::Foreground(color) => self.attributes.foreground = color,
+                EscapedSequence::Background(color) => self.pending_attributes.set_background(*color),
+                EscapedSequence::Foreground(color) => self.attributes.foreground = *color,
                 EscapedSequence::Csi(csi) => match csi {
                     //these four sequences do not support wrapping and the cursor will just
                     //stop moving when it reaches the border of the screen (p94 and 95)
                     //todo: check if we need to copy zone attributes as well ? probably need to copy on all operations ?
-                    Csi::MoveUp(offset) => self.move_cursor_y(-(offset as i8), false),
-                    Csi::MoveDown(offset) => self.move_cursor_y(offset as i8, false),
-                    Csi::MoveRight(offset) => self.move_cursor_x(offset as i8, false),
-                    Csi::MoveLeft(offset) => self.move_cursor_x(-(offset as i8), false),
+                    Csi::MoveUp(offset) => self.move_cursor_y(-(*offset as i8), false),
+                    Csi::MoveDown(offset) => self.move_cursor_y(*offset as i8, false),
+                    Csi::MoveRight(offset) => self.move_cursor_x(*offset as i8, false),
+                    Csi::MoveLeft(offset) => self.move_cursor_x(-(*offset as i8), false),
 
                     Csi::SetCursor(x, y) => {
-                        self.set_cursor(x, y, false);
+                        self.set_cursor(*x, *y, false);
                     },
-                    Csi::InsertRowsFromCursor(count)  => self.grid.insert_rows_after(count, self.cursor_y),
-                    Csi::EraseRowsFromCursor(count) => self.grid.delete_rows_after(count, self.cursor_y),
+                    Csi::InsertRowsFromCursor(count)  => self.grid.insert_rows_after(*count, self.cursor_y),
+                    Csi::EraseRowsFromCursor(count) => self.grid.delete_rows_after(*count, self.cursor_y),
                     //todo: check if attributes and pending attributes are reset?
                     Csi::ClearRow => self.grid.clear_row(self.cursor_y),
                     Csi::InsertSpacesFromCursorToEol => panic!("CAN not yet implemented"),
@@ -1075,8 +1122,8 @@ impl Context {
                     Csi::ClearScreenKeepCursorPos => self.grid.reset(),
                     Csi::ClearFromCursorToEol => self.grid.clear_in_row_after(self.cursor_x, self.cursor_y),
                     Csi::ClearFromSolToCursor => self.grid.clear_in_row_before(self.cursor_x, self.cursor_y),
-                    Csi::ClearAfterCursor(count) => self.grid.delete_after(count, self.cursor_x, self.cursor_y),
-                    Csi::InsertFromCursor(count) => self.grid.insert_after(count, self.cursor_x, self.cursor_y),
+                    Csi::ClearAfterCursor(count) => self.grid.delete_after(*count, self.cursor_x, self.cursor_y),
+                    Csi::InsertFromCursor(count) => self.grid.insert_after(*count, self.cursor_x, self.cursor_y),
                     Csi::StartInsert => self.insert = true,
                     Csi::EndInsert => self.insert = true,
                     _ => panic!("Received incomplete CSI sequence {:?}", csi),
@@ -1087,8 +1134,8 @@ impl Context {
                 if self.attributes.character_set == CharacterSet::G1 => {
                     panic!("Changing invert and character size while in G1 is not supported");
                 },
-                EscapedSequence::Blink(blink) => self.attributes.blinking = blink,
-                EscapedSequence::Invert(invert) => self.attributes.invert = invert,
+                EscapedSequence::Blink(blink) => self.attributes.blinking = *blink,
+                EscapedSequence::Invert(invert) => self.attributes.invert = *invert,
                 EscapedSequence::NormalSize => {
                     self.attributes.double_height = false;
                     self.attributes.double_width = false;
@@ -1103,17 +1150,17 @@ impl Context {
                     self.attributes.double_width = true;
                 },
                 //todo: seulement en mode alphabétique sinon on applique direct?
-                EscapedSequence::Underline(underline) => self.pending_attributes.set_underline(underline),
+                EscapedSequence::Underline(underline) => self.pending_attributes.set_underline(*underline),
                 //todo: seulement en mode alphabétique sinon on applique direct?
-                EscapedSequence::Mask(mask) => self.pending_attributes.set_mask(mask),
-                EscapedSequence::Ignore(Some(ignore)) => self.ignore_sequences = ignore,
+                EscapedSequence::Mask(mask) => self.pending_attributes.set_mask(*mask),
+                EscapedSequence::Ignore(Some(ignore)) => self.ignore_sequences = *ignore,
                 EscapedSequence::Protocol(_) => {} //todo: handle
                 EscapedSequence::GetCursorPosition => {} //todo: handle
-                EscapedSequence::ScreenMasking(mask) => self.screen_mask = mask,
+                EscapedSequence::ScreenMasking(mask) => self.screen_mask = *mask,
                 _ => panic!("Received incomplete escaped sequence {:?}", esc),
             }
             Sequence::SetCharacterSet(set) => {
-                self.attributes.character_set = set;
+                self.attributes.character_set = *set;
                 self.attributes.underline = false; //p94 todo: on peut supprimer?
                 self.pending_attributes.underline = None; //p94
 
@@ -1124,8 +1171,8 @@ impl Context {
                     self.attributes.double_width = false;
                 }
             },
-            Sequence::SpecialCharacter(character) => self.print(character.to_character()),
-            Sequence::SimpleCharacter(character) => self.print(character.to_character()),
+            Sequence::SpecialCharacter(character) => self.print(character.to_character()?),
+            Sequence::SimpleCharacter(character) => self.print(character.to_character()?),
             Sequence::SemiGraphicCharacter(character) => self.print(character.0 as char),
             Sequence::MoveCursor(direction) => match direction {
                 Direction::Up => self.move_cursor_y(-1, true),
@@ -1158,9 +1205,11 @@ impl Context {
                     panic!("Tried to repeat a character at the beginning of the screen");
                 }
             },
-            Sequence::VisibleCursor(value) => self.visible_cursor = value,
+            Sequence::VisibleCursor(value) => self.visible_cursor = *value,
             Sequence::Beep => {} //todo: handle beep idk how
-        }
+        };
+
+        Ok(())
     }
 
     fn set_cursor(&mut self, x: u8, y: u8, allow_row_zero: bool) {
@@ -1309,18 +1358,27 @@ impl Parser {
         &self.ctx
     }
 
-    pub fn consume_all(&mut self, bytes: &[u8]) {
-        for byte in bytes {
-            self.consume(*byte);
-        }
-    }
+    pub fn consume(&mut self, byte: u8) -> Result<(), Error> {
+        let mut result = || {
+            self.sequence = self.sequence.consume(&self.ctx, byte)?;
 
-    pub fn consume(&mut self, byte: u8) {
-        self.sequence = self.sequence.consume(&self.ctx, byte);
+            if self.sequence.is_complete() {
+                let complete_sequence = mem::replace(&mut self.sequence, Sequence::Incomplete);
+                self.ctx.consume(&complete_sequence)?;
+            }
 
-        if self.sequence.is_complete() {
-            let complete_sequence = mem::replace(&mut self.sequence, Sequence::Incomplete);
-            self.ctx.consume(complete_sequence);
+            Ok(())
+        };
+
+        if cfg!(feature = "strict") {
+            result()
+        } else {
+            if let Err(err) = result() {
+                //todo: use logging library
+                eprintln!("{}", err);
+            }
+
+            Ok(())
         }
     }
 }
@@ -1342,19 +1400,31 @@ mod tests {
         assert!(CharacterSet::supports(&ctx, 0x0F));
         assert!(CharacterSet::supports(&ctx, 0x0E));
 
-        assert_eq!(CharacterSet::new(&ctx, 0x0F), CharacterSet::G0);
-        assert_eq!(CharacterSet::new(&ctx, 0x0E), CharacterSet::G1);
+        assert_eq!(CharacterSet::new(&ctx, 0x0F), Ok(CharacterSet::G0));
+        assert_eq!(CharacterSet::new(&ctx, 0x0E), Ok(CharacterSet::G1));
 
         assert!(CharacterSet::G0.is_complete());
         assert!(CharacterSet::G1.is_complete());
 
-        assert_panics!(CharacterSet::new(&ctx, SI).consume(&ctx, 0x00));
-        assert_panics!(CharacterSet::new(&ctx, SI).consume(&ctx, 0x0E));
-        assert_panics!(CharacterSet::new(&ctx, SI).consume(&ctx, 0x00));
+        assert_eq!(
+            CharacterSet::new(&ctx, SI).unwrap().consume(&ctx, 0x00),
+            Err(Error::new("Character set G0 does not support more bytes (0x00)")),
+        );
 
-        assert_panics!(CharacterSet::new(&ctx, SO).consume(&ctx, 0x00));
-        assert_panics!(CharacterSet::new(&ctx, SO).consume(&ctx, 0x0F));
-        assert_panics!(CharacterSet::new(&ctx, SO).consume(&ctx, 0x00));
+        assert_eq!(
+            CharacterSet::new(&ctx, SI).unwrap().consume(&ctx, 0x0E),
+            Err(Error::new("Character set G0 does not support more bytes (0x0E)")),
+        );
+
+        assert_eq!(
+            CharacterSet::new(&ctx, SO).unwrap().consume(&ctx, 0x00),
+            Err(Error::new("Character set G1 does not support more bytes (0x00)")),
+        );
+
+        assert_eq!(
+            CharacterSet::new(&ctx, SO).unwrap().consume(&ctx, 0x0F),
+            Err(Error::new("Character set G1 does not support more bytes (0x0F)")),
+        );
     }
 
     #[test]
@@ -1362,19 +1432,20 @@ mod tests {
         let mut ctx = Context::new(DisplayComponent::VGP2);
         ctx.attributes.character_set = CharacterSet::G0;
 
-        assert_eq!(SimpleCharacter::new(&ctx, 0x20), SimpleCharacter(0x20));
-        assert_eq!(SimpleCharacter::new(&ctx, 0x3F), SimpleCharacter(0x3F));
-        assert_eq!(SimpleCharacter::new(&ctx, 0x4A), SimpleCharacter(0x4A));
-        assert_eq!(SimpleCharacter::new(&ctx, 0x60), SimpleCharacter(0x60));
-        assert_eq!(SimpleCharacter::new(&ctx, 0x7F), SimpleCharacter(0x7F));
+        assert_eq!(SimpleCharacter::new(&ctx, 0x20), Ok(SimpleCharacter(0x20)));
+        assert_eq!(SimpleCharacter::new(&ctx, 0x3F), Ok(SimpleCharacter(0x3F)));
+        assert_eq!(SimpleCharacter::new(&ctx, 0x4A), Ok(SimpleCharacter(0x4A)));
+        assert_eq!(SimpleCharacter::new(&ctx, 0x60), Ok(SimpleCharacter(0x60)));
+        assert_eq!(SimpleCharacter::new(&ctx, 0x7F), Ok(SimpleCharacter(0x7F)));
 
         assert!(!SimpleCharacter::supports(&ctx, 0x00));
         assert!(!SimpleCharacter::supports(&ctx, 0x1F));
+        assert!(!SimpleCharacter::supports(&ctx, 0x8A));
         assert!(SimpleCharacter::supports(&ctx, 0x20));
         assert!(SimpleCharacter::supports(&ctx, 0x7F));
 
-        assert!(SimpleCharacter::new(&ctx, 0x20).is_complete());
-        assert!(SimpleCharacter::new(&ctx, 0x7F).is_complete());
+        assert!(SimpleCharacter::new(&ctx, 0x20).unwrap().is_complete());
+        assert!(SimpleCharacter::new(&ctx, 0x7F).unwrap().is_complete());
     }
 
     #[test]
@@ -1387,10 +1458,10 @@ mod tests {
         assert!(!SimpleCharacter::supports(&ctx, 0x20));
         assert!(!SimpleCharacter::supports(&ctx, 0x3F));
 
-        assert_panics!(SimpleCharacter::new(&ctx, 0x20));
-        assert_panics!(SimpleCharacter::new(&ctx, 0x3F));
-        assert_panics!(SimpleCharacter::new(&ctx, 0x4A));
-        assert_panics!(SimpleCharacter::new(&ctx, 0x60));
+        assert_err!(SimpleCharacter::new(&ctx, 0x20), "Invalid simple character 0x20");
+        assert_err!(SimpleCharacter::new(&ctx, 0x7F), "Invalid simple character 0x7F");
+        assert_err!(SimpleCharacter::new(&ctx, 0x4A), "Invalid simple character 0x4A");
+        assert_err!(SimpleCharacter::new(&ctx, 0x60), "Invalid simple character 0x60");
     }
 
     #[test]
@@ -1398,20 +1469,23 @@ mod tests {
         let mut ctx = Context::new(DisplayComponent::VGP2);
         ctx.attributes.character_set = CharacterSet::G1;
 
-        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x20), SemiGraphicCharacter(0x20));
-        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x3F), SemiGraphicCharacter(0x3F));
-        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x60), SemiGraphicCharacter(0x60));
-        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x7F), SemiGraphicCharacter(0x7F));
+        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x20), Ok(SemiGraphicCharacter(0x20)));
+        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x3F), Ok(SemiGraphicCharacter(0x3F)));
+        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x60), Ok(SemiGraphicCharacter(0x60)));
+        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x5F), Ok(SemiGraphicCharacter(0x5F)));
+        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x40), Ok(SemiGraphicCharacter(0x60)));
+        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x55), Ok(SemiGraphicCharacter(0x75)));
+        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x7F), Ok(SemiGraphicCharacter(0x5F)));
 
         assert!(!SemiGraphicCharacter::supports(&ctx, 0x00));
         assert!(!SemiGraphicCharacter::supports(&ctx, 0x1F));
-        assert!(!SemiGraphicCharacter::supports(&ctx, 0x40));
+        assert!(!SemiGraphicCharacter::supports(&ctx, 0x8A));
         assert!(SemiGraphicCharacter::supports(&ctx, 0x5F));
         assert!(SemiGraphicCharacter::supports(&ctx, 0x60));
         assert!(SemiGraphicCharacter::supports(&ctx, 0x7F));
 
-        assert!(SemiGraphicCharacter::new(&ctx, 0x20).is_complete());
-        assert!(SemiGraphicCharacter::new(&ctx, 0x7F).is_complete());
+        assert!(SemiGraphicCharacter::new(&ctx, 0x20).unwrap().is_complete());
+        assert!(SemiGraphicCharacter::new(&ctx, 0x7F).unwrap().is_complete());
     }
 
     #[test]
@@ -1426,19 +1500,19 @@ mod tests {
         assert!(!SemiGraphicCharacter::supports(&ctx, 0x20));
         assert!(!SemiGraphicCharacter::supports(&ctx, 0x3F));
 
-        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x20));
-        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x3F));
-        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x45));
-        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x5F));
-        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x60));
-        assert_panics!(SemiGraphicCharacter::new(&ctx, 0x7F));
+        assert_err!(SemiGraphicCharacter::new(&ctx, 0x20), "Invalid semi-graphic character 0x20");
+        assert_err!(SemiGraphicCharacter::new(&ctx, 0x3F), "Invalid semi-graphic character 0x3F");
+        assert_err!(SemiGraphicCharacter::new(&ctx, 0x45), "Invalid semi-graphic character 0x45");
+        assert_err!(SemiGraphicCharacter::new(&ctx, 0x5F), "Invalid semi-graphic character 0x5F");
+        assert_err!(SemiGraphicCharacter::new(&ctx, 0x60), "Invalid semi-graphic character 0x60");
+        assert_err!(SemiGraphicCharacter::new(&ctx, 0x7F), "Invalid semi-graphic character 0x7F");
     }
 
     #[test]
     fn test_special_character() {
         let ctx = Context::new(DisplayComponent::VGP2);
 
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19), SpecialCharacter::Incomplete);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19), Ok(SpecialCharacter::Incomplete));
 
         assert!(SpecialCharacter::supports(&ctx, 0x19));
         assert!(!SpecialCharacter::supports(&ctx, 0x1B));
@@ -1446,32 +1520,32 @@ mod tests {
         assert!(!SpecialCharacter::supports(&ctx, 0x1F));
         assert!(!SpecialCharacter::supports(&ctx, 0x7F));
 
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19), SpecialCharacter::Incomplete);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19), Ok(SpecialCharacter::Incomplete));
 
-        assert_panics!(SpecialCharacter::new(&ctx, 0x00));
-        assert_panics!(SpecialCharacter::new(&ctx, 0x1B));
-        assert_panics!(SpecialCharacter::new(&ctx, 0x1F));
+        assert_err!(SpecialCharacter::new(&ctx, 0x00), "Invalid special character 0x00");
+        assert_err!(SpecialCharacter::new(&ctx, 0x1B), "Invalid special character 0x1B");
+        assert_err!(SpecialCharacter::new(&ctx, 0x1F), "Invalid special character 0x1F");
 
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, GRAVE), SpecialCharacter::Grave(None));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ACUTE), SpecialCharacter::Acute(None));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, CIRCUMFLEX), SpecialCharacter::Circumflex(None));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, DIAERESIS), SpecialCharacter::Diaeresis(None));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, CEDILLA), SpecialCharacter::Cedilla(None));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, LOWER_OE), SpecialCharacter::LowerOE);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, UPPER_OE), SpecialCharacter::UpperOE);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, POUND), SpecialCharacter::Pound);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, DOLLAR), SpecialCharacter::Dollar);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, NUMBER_SIGN), SpecialCharacter::NumberSign);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ARROW_LEFT), SpecialCharacter::ArrowLeft);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ARROW_UP), SpecialCharacter::ArrowUp);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ARROW_RIGHT), SpecialCharacter::ArrowRight);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ARROW_DOWN), SpecialCharacter::ArrowDown);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, DEGREE), SpecialCharacter::Degree);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, PLUS_OR_MINUS), SpecialCharacter::PlusOrMinus);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, OBELUS), SpecialCharacter::Obelus);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ONE_QUARTER), SpecialCharacter::OneQuarter);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ONE_HALF), SpecialCharacter::OneHalf);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, THREE_QUARTERS), SpecialCharacter::ThreeQuarters);
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, GRAVE), Ok(SpecialCharacter::Grave(None)));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ACUTE), Ok(SpecialCharacter::Acute(None)));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, CIRCUMFLEX), Ok(SpecialCharacter::Circumflex(None)));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, DIAERESIS), Ok(SpecialCharacter::Diaeresis(None)));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, CEDILLA), Ok(SpecialCharacter::Cedilla(None)));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, LOWER_OE), Ok(SpecialCharacter::LowerOE));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, UPPER_OE), Ok(SpecialCharacter::UpperOE));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, POUND), Ok(SpecialCharacter::Pound));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, DOLLAR), Ok(SpecialCharacter::Dollar));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, NUMBER_SIGN), Ok(SpecialCharacter::NumberSign));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ARROW_LEFT), Ok(SpecialCharacter::ArrowLeft));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ARROW_UP), Ok(SpecialCharacter::ArrowUp));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ARROW_RIGHT), Ok(SpecialCharacter::ArrowRight));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ARROW_DOWN), Ok(SpecialCharacter::ArrowDown));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, DEGREE), Ok(SpecialCharacter::Degree));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, PLUS_OR_MINUS), Ok(SpecialCharacter::PlusOrMinus));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, OBELUS), Ok(SpecialCharacter::Obelus));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ONE_QUARTER), Ok(SpecialCharacter::OneQuarter));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ONE_HALF), Ok(SpecialCharacter::OneHalf));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, THREE_QUARTERS), Ok(SpecialCharacter::ThreeQuarters));
 
         assert!(!SpecialCharacter::Grave(None).is_complete());
         assert!(!SpecialCharacter::Acute(None).is_complete());
@@ -1485,135 +1559,192 @@ mod tests {
     #[test]
     fn test_special_character_vgp2_specific() {
         let ctx = Context::new(DisplayComponent::VGP2);
-        assert_eq!(SpecialCharacter::Grave(None).consume(&ctx, 'a' as u8), SpecialCharacter::Grave(Some('a' as u8)));
-        assert_eq!(SpecialCharacter::Acute(None).consume(&ctx, 'e' as u8), SpecialCharacter::Acute(Some('e' as u8)));
-        assert_eq!(SpecialCharacter::Circumflex(None).consume(&ctx, 'o' as u8), SpecialCharacter::Circumflex(Some('o' as u8)));
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'i' as u8), SpecialCharacter::Diaeresis(Some('i' as u8)));
-        assert_eq!(SpecialCharacter::Cedilla(None).consume(&ctx, 'c' as u8), SpecialCharacter::Cedilla(Some('c' as u8)));
+        assert_eq!(SpecialCharacter::Grave(None).consume(&ctx, 'a' as u8), Ok(SpecialCharacter::Grave(Some('a' as u8))));
+        assert_eq!(SpecialCharacter::Acute(None).consume(&ctx, 'e' as u8), Ok(SpecialCharacter::Acute(Some('e' as u8))));
+        assert_eq!(SpecialCharacter::Circumflex(None).consume(&ctx, 'o' as u8), Ok(SpecialCharacter::Circumflex(Some('o' as u8))));
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'i' as u8), Ok(SpecialCharacter::Diaeresis(Some('i' as u8))));
+        assert_eq!(SpecialCharacter::Cedilla(None).consume(&ctx, 'c' as u8), Ok(SpecialCharacter::Cedilla(Some('c' as u8))));
 
-        assert_panics!(SpecialCharacter::Acute(None).consume(&ctx, 'a' as u8));
-        assert_panics!(SpecialCharacter::Acute(None).consume(&ctx, 'o' as u8));
-        assert_panics!(SpecialCharacter::Grave(None).consume(&ctx, 'c' as u8));
-        assert_panics!(SpecialCharacter::Cedilla(None).consume(&ctx, 'i' as u8));
-        assert_panics!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'a' as u8));
-        assert_panics!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'o' as u8));
-        assert_panics!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'u' as u8));
-        assert_panics!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ESZETT));
-        assert_panics!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, PARAGRAPH));
+        assert_err!(
+            SpecialCharacter::Acute(None).consume(&ctx, 'a' as u8),
+            "Invalid character for acute accent 0x61",
+        );
+
+        assert_err!(
+            SpecialCharacter::Acute(None).consume(&ctx, 'o' as u8),
+            "Invalid character for acute accent 0x6F",
+        );
+
+        assert_err!(
+            SpecialCharacter::Grave(None).consume(&ctx, 'c' as u8),
+            "Invalid character for grave accent 0x63",
+        );
+
+        assert_err!(
+            SpecialCharacter::Cedilla(None).consume(&ctx, 'i' as u8),
+            "Invalid character for cedilla 0x69",
+        );
+
+        assert_err!(
+            SpecialCharacter::Diaeresis(None).consume(&ctx, 'a' as u8),
+            "Invalid character for diaeresis 0x61",
+        );
+
+        assert_err!(
+            SpecialCharacter::Diaeresis(None).consume(&ctx, 'o' as u8),
+            "Invalid character for diaeresis 0x6F",
+        );
+
+        assert_err!(
+            SpecialCharacter::Diaeresis(None).consume(&ctx, 'u' as u8),
+            "Invalid character for diaeresis 0x75",
+        );
+
+        //test characters not supported in VGP2 todo: better error message
+
+        assert_err!(
+            SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ESZETT),
+            "Invalid special character 0x7B",
+        );
+
+        assert_err!(
+            SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, PARAGRAPH),
+            "Invalid special character 0x27",
+        );
     }
 
     #[test]
     fn test_special_character_vgp5_specific() {
         let ctx = Context::new(DisplayComponent::VGP5);
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'a' as u8), SpecialCharacter::Diaeresis(Some('a' as u8)));
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'o' as u8), SpecialCharacter::Diaeresis(Some('o' as u8)));
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'u' as u8), SpecialCharacter::Diaeresis(Some('u' as u8)));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, ESZETT), SpecialCharacter::Eszett);
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).consume(&ctx, PARAGRAPH), SpecialCharacter::Paragraph);
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'a' as u8), Ok(SpecialCharacter::Diaeresis(Some('a' as u8))));
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'o' as u8), Ok(SpecialCharacter::Diaeresis(Some('o' as u8))));
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'u' as u8), Ok(SpecialCharacter::Diaeresis(Some('u' as u8))));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ESZETT), Ok(SpecialCharacter::Eszett));
+        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, PARAGRAPH), Ok(SpecialCharacter::Paragraph));
     }
 
     #[test]
     fn test_csi() {
         let ctx = Context::new(DisplayComponent::VGP2);
 
-        assert_eq!(Csi::new(&ctx, 0x5B), Csi::Incomplete);
+        assert_eq!(Csi::new(&ctx, 0x5B), Ok(Csi::Incomplete));
 
         assert!(Csi::supports(&ctx, 0x5B));
         assert!(!Csi::supports(&ctx, 0x00));
         assert!(!Csi::supports(&ctx, 0x1F));
 
-        assert!(!Csi::new(&ctx, 0x5B).is_complete());
+        assert!(!Csi::new(&ctx, 0x5B).unwrap().is_complete());
 
-        assert_panics!(Csi::new(&ctx, 0x00));
-        assert_panics!(Csi::new(&ctx, 0x1F));
+        assert_err!(
+            Csi::new(&ctx, 0x00),
+            "Unsupported or invalid CSI sequence starting with 0x00",
+        );
 
-        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x00));
-        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x11));
-        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x7F));
+        assert_err!(
+            Csi::new(&ctx, 0x1F),
+            "Unsupported or invalid CSI sequence starting with 0x1F",
+        );
+
+        assert_err!(
+            Csi::new(&ctx, 0x5B).unwrap().consume(&ctx, 0x00),
+            "Unsupported or invalid CSI sequence starting with 0x00",
+        );
+
+        assert_err!(
+            Csi::new(&ctx, 0x5B).unwrap().consume(&ctx, 0x11),
+            "Unsupported or invalid CSI sequence starting with 0x11",
+        );
     }
 
     #[test]
     fn test_csi_move_cursor() {
         let ctx = Context::new(DisplayComponent::VGP2);
 
-        let move_left_29 = Csi::new(&ctx, 0x5B)
-            .consume(&ctx, 0x32)
-            .consume(&ctx, 0x39)
-            .consume(&ctx, 0x44);
+        let move_left_29 = Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x32).unwrap()
+            .consume(&ctx, 0x39).unwrap()
+            .consume(&ctx, 0x44).unwrap();
 
         assert_eq!(move_left_29, Csi::MoveLeft(29));
         assert!(move_left_29.is_complete());
 
-        let move_right_11 = Csi::new(&ctx, 0x5B)
-            .consume(&ctx, 0x31)
-            .consume(&ctx, 0x31)
-            .consume(&ctx, 0x43);
+        let move_right_11 = Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x43).unwrap();
 
         assert_eq!(move_right_11, Csi::MoveRight(11));
         assert!(move_right_11.is_complete());
 
-        let move_up_7 = Csi::new(&ctx, 0x5B)
-            .consume(&ctx, 0x37)
-            .consume(&ctx, 0x41);
+        let move_up_7 = Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x37).unwrap()
+            .consume(&ctx, 0x41).unwrap();
 
         assert_eq!(move_up_7, Csi::MoveUp(7));
         assert!(move_up_7.is_complete());
 
-        let move_down_3 = Csi::new(&ctx, 0x5B)
-            .consume(&ctx, 0x30)
-            .consume(&ctx, 0x33)
-            .consume(&ctx, 0x42);
+        let move_down_3 = Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x30).unwrap()
+            .consume(&ctx, 0x33).unwrap()
+            .consume(&ctx, 0x42).unwrap();
 
         assert_eq!(move_down_3, Csi::MoveDown(3));
         assert!(move_down_3.is_complete());
 
-        let move_right_1 = Csi::new(&ctx, 0x5B)
-            .consume(&ctx, 0x31)
-            .consume(&ctx, 0x43);
+        let move_right_1 = Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x43).unwrap();
 
         assert_eq!(move_right_1, Csi::MoveRight(1));
         assert!(move_right_1.is_complete());
 
-        let move_left_0 = Csi::new(&ctx, 0x5B)
-            .consume(&ctx, 0x30)
-            .consume(&ctx, 0x44);
+        let move_left_0 = Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x30).unwrap()
+            .consume(&ctx, 0x44).unwrap();
 
         assert_eq!(move_left_0, Csi::MoveLeft(0));
         assert!(move_left_0.is_complete());
 
-        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x44));
-        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x41));
+        assert_err!(
+            Csi::new(&ctx, 0x5B).unwrap().consume(&ctx, 0x44),
+            "Unsupported or invalid CSI sequence starting with 0x44",
+        );
+
+        assert_err!(
+            Csi::new(&ctx, 0x5B).unwrap().consume(&ctx, 0x41),
+            "Unsupported or invalid CSI sequence starting with 0x41",
+        );
     }
 
     #[test]
     fn test_csi_set_cursor() {
         let ctx = Context::new(DisplayComponent::VGP2);
 
-        let set_cursor_0_1 = Csi::new(&ctx, 0x5B)
-            .consume(&ctx, 0x31)
-            .consume(&ctx, 0x3B)
-            .consume(&ctx, 0x31)
-            .consume(&ctx, 0x48);
+        let set_cursor_0_1 = Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x3B).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x48).unwrap();
 
         assert_eq!(set_cursor_0_1, Csi::SetCursor(1, 1));
         assert!(set_cursor_0_1.is_complete());
 
-        let set_cursor_1_2 = Csi::new(&ctx, 0x5B)
-            .consume(&ctx, 0x32)
-            .consume(&ctx, 0x3B)
-            .consume(&ctx, 0x31)
-            .consume(&ctx, 0x48);
+        let set_cursor_1_2 = Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x32).unwrap()
+            .consume(&ctx, 0x3B).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x48).unwrap();
 
         assert_eq!(set_cursor_1_2, Csi::SetCursor(1, 2));
         assert!(set_cursor_1_2.is_complete());
 
-        let set_cursor_34_13 = Csi::new(&ctx, 0x5B)
-            .consume(&ctx, 0x31)
-            .consume(&ctx, 0x33)
-            .consume(&ctx, 0x3B)
-            .consume(&ctx, 0x33)
-            .consume(&ctx, 0x34)
-            .consume(&ctx, 0x48);
+        let set_cursor_34_13 = Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x33).unwrap()
+            .consume(&ctx, 0x3B).unwrap()
+            .consume(&ctx, 0x33).unwrap()
+            .consume(&ctx, 0x34).unwrap()
+            .consume(&ctx, 0x48).unwrap();
 
         assert_eq!(set_cursor_34_13, Csi::SetCursor(34, 13));
         assert!(set_cursor_34_13.is_complete());
@@ -1623,10 +1754,44 @@ mod tests {
     fn test_invalid_set_cursor() {
         let ctx = Context::new(DisplayComponent::VGP2);
 
-        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x31).consume(&ctx, 0x3B).consume(&ctx, 0x48));
-        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x3F));
-        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x31).consume(&ctx, 0x3B).consume(&ctx, 0x3B));
-        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x31).consume(&ctx, 0x3B).consume(&ctx, 0x30).consume(&ctx, 0x3B));
-        assert_panics!(Csi::new(&ctx, 0x5B).consume(&ctx, 0x31).consume(&ctx, 0x3B).consume(&ctx, 0x30).consume(&ctx, 0x48).consume(&ctx, 0x48));
+        assert_err!(
+            Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x3B).unwrap()
+            .consume(&ctx, 0x48),
+            "Unsupported or invalid byte 0x48 for sequence IncompleteSetCursor(None, Some(1))",
+        );
+
+        assert_err!(
+            Csi::new(&ctx, 0x5B).unwrap().consume(&ctx, 0x3F),
+            "Unsupported or invalid CSI sequence starting with 0x3F",
+        );
+
+        assert_err!(
+            Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x3B).unwrap()
+            .consume(&ctx, 0x3B),
+            "Unsupported or invalid byte 0x3B for sequence IncompleteSetCursor(None, Some(1))",
+        );
+
+        assert_err!(
+            Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x3B).unwrap()
+            .consume(&ctx, 0x30).unwrap()
+            .consume(&ctx, 0x3B),
+            "Unsupported or invalid byte 0x3B for sequence IncompleteSetCursor(Some(0), Some(1))",
+        );
+
+        assert_err!(
+            Csi::new(&ctx, 0x5B).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x3B).unwrap()
+            .consume(&ctx, 0x31).unwrap()
+            .consume(&ctx, 0x48).unwrap()
+            .consume(&ctx, 0x48),
+            "Unsupported or invalid byte 0x48 for sequence SetCursor(1, 1)",
+        );
     }
 }

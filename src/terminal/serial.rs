@@ -3,7 +3,7 @@ use crate::protocol::{ProtocolExtension, SpeedAwareTerminal};
 use crate::specifications::codes::{FF, PRO2, PROG};
 use crate::terminal::{BaudRate, Contextualized, ReadableTerminal, ToTerminal, WriteableTerminal};
 use serial2::{CharSize, FlowControl, Parity, SerialPort, Settings, StopBits};
-use std::io::{ErrorKind, Read, Result as IoResult, Write};
+use std::io::ErrorKind;
 use std::time::Duration;
 use crate::parser::{Context, DisplayComponent, Parser};
 
@@ -51,43 +51,45 @@ impl SerialTerminal {
         //arbitrary values selected by testing, may not work on all setups
         //todo: allow manually setting it ?
         port.set_read_timeout(Duration::from_millis(match baud_rate {
-            BaudRate::B300 => 350,
-            BaudRate::B1200 => 90,
-            BaudRate::B4800 => 24,
+            BaudRate::B300 => 500,
+            BaudRate::B1200 => 180,
+            BaudRate::B4800 => 48,
             #[cfg(feature = "minitel2")]
-            BaudRate::B9600 => 12,
+            BaudRate::B9600 => 24,
         }))?;
 
         Ok(port)
     }
 
     #[inline(always)]
-    fn send(&mut self, data: impl ToTerminal) -> IoResult<usize> {
+    fn send(&mut self, data: impl ToTerminal) -> Result<(), Error> {
         data.to_terminal(self)
     }
 }
 
-impl Read for SerialTerminal {
-    #[inline(always)]
-    fn read(&mut self, buffer: &mut [u8]) -> IoResult<usize> {
+impl ReadableTerminal for SerialTerminal {
+    fn read(&mut self, buffer: &mut [u8]) -> Result<usize, Error> {
         match self.port.read(buffer) {
             Ok(bytes_read) => Ok(bytes_read),
             Err(ref e) if e.kind() == ErrorKind::TimedOut => Ok(0),
-            Err(e) => Err(e),
+            Err(e) => Err(Error::Io(e)),
         }
     }
 }
 
-impl Write for SerialTerminal {
-    #[inline(always)]
-    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
-        self.parser.consume_all(buf);
-        self.port.write(buf)
+impl WriteableTerminal for SerialTerminal {
+    fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
+        for i in 0..buf.len() {
+            self.parser.consume(buf[i])?;
+            self.port.write(&buf[i..i+1])?;
+        }
+
+        Ok(())
     }
 
     #[inline(always)]
-    fn flush(&mut self) -> IoResult<()> {
-        self.port.flush()
+    fn flush(&mut self) -> Result<(), Error> {
+        self.port.flush().map_err(Into::into)
     }
 }
 
@@ -96,10 +98,6 @@ impl Contextualized for SerialTerminal {
         self.parser.ctx()
     }
 }
-
-impl ReadableTerminal for SerialTerminal {}
-
-impl WriteableTerminal for SerialTerminal {}
 
 impl SpeedAwareTerminal for SerialTerminal {
     fn match_connector_speed(&mut self) -> Result<(), Error> {
@@ -121,11 +119,11 @@ impl SpeedAwareTerminal for SerialTerminal {
             }
 
             if matches!(self.get_connector_speed(), Ok(claim) if claim == baud_rate) {
-                self.set_connector_speed(if cfg!(feature = "minitel2") {
-                    BaudRate::B9600
-                } else {
-                    BaudRate::B4800
-                })?;
+                #[cfg(feature = "minitel2")]
+                self.set_connector_speed(BaudRate::B9600)?;
+
+                #[cfg(not(feature = "minitel2"))]
+                self.set_connector_speed(BaudRate::B4800)?;
 
                 match self.get_connector_speed() {
                     Ok(speed) if speed == self.baud_rate => return Ok(()),
@@ -137,7 +135,7 @@ impl SpeedAwareTerminal for SerialTerminal {
 
     fn set_connector_speed(&mut self, baud_rate: BaudRate) -> Result<(), Error> {
         self.read_to_vec()?;
-        self.write_all(&[PRO2, PROG])?;
+        self.write(&[PRO2, PROG])?;
         baud_rate.to_terminal(self)?;
         self.flush()?;
 

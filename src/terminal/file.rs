@@ -1,6 +1,7 @@
 use std::fs::{File, OpenOptions};
 use std::io::{Result as IoResult, Write};
 use std::path::{Path};
+use crate::Error;
 use crate::parser::{DisplayComponent, Parser};
 use crate::terminal::{Context, Contextualized, ToTerminal, WriteableTerminal};
 
@@ -25,7 +26,7 @@ impl FileReceiver {
     }
 
     #[inline(always)]
-    pub fn send(&mut self, data: impl ToTerminal) -> IoResult<usize> {
+    pub fn send(&mut self, data: impl ToTerminal) -> Result<(), Error> {
         data.to_terminal(self)
     }
 }
@@ -36,20 +37,21 @@ impl Contextualized for FileReceiver {
     }
 }
 
-impl Write for FileReceiver {
-    #[inline(always)]
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.parser.consume_all(buf);
-        self.file.write(buf)
+impl WriteableTerminal for FileReceiver {
+    fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
+        for i in 0..buf.len() {
+            self.parser.consume(buf[i])?;
+            self.file.write_all(&buf[i..i+1])?;
+        }
+
+        Ok(())
     }
 
     #[inline(always)]
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.file.flush()
+    fn flush(&mut self) -> Result<(), Error> {
+        self.file.flush().map_err(Into::into)
     }
 }
-
-impl WriteableTerminal for FileReceiver {}
 
 #[cfg(test)]
 mod tests {

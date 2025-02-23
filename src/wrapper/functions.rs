@@ -3,7 +3,7 @@
 use std::io::Result as IoResult;
 use crate::specifications::codes::*;
 use crate::terminal::{ToTerminal, WriteableTerminal};
-use crate::declare;
+use crate::{declare, Error};
 
 declare!(Clear, [FF]);
 declare!(ClearRow, [CSI_2_K]);
@@ -16,12 +16,12 @@ declare!(Beep, [BEEP]);
 pub struct Underline<T: ToTerminal>(pub T);
 
 impl<T: ToTerminal> ToTerminal for Underline<T> {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         [ESC, START_UNDERLINE].to_terminal(term)?;
-        let written_bytes = self.0.to_terminal(term)?;
+        self.0.to_terminal(term)?;
         [ESC, STOP_UNDERLINE].to_terminal(term)?;
 
-        Ok(written_bytes + 4)
+        Ok(())
     }
 }
 
@@ -33,12 +33,12 @@ declare!(Blink<T: ToTerminal>(pub T), |self| [ESC, BLINK, self.0, ESC, STILL]);
 pub struct Background<T: ToTerminal>(pub Color, pub T);
 
 impl<T: ToTerminal> ToTerminal for Background<T> {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         [ESC, BACKGROUND + self.0 as u8].to_terminal(term)?;
-        let written_bytes = self.1.to_terminal(term)?;
+        self.1.to_terminal(term)?;
         [ESC, BACKGROUND + Color::Black as u8].to_terminal(term)?;
 
-        Ok(written_bytes + 4)
+        Ok(())
     }
 }
 
@@ -53,12 +53,12 @@ declare!(Big<T: ToTerminal>(pub T), |self| [ESC, DOUBLE_SIZE, self.0, ESC, NORMA
 pub struct Mask<T: ToTerminal>(pub T);
 
 impl<T: ToTerminal> ToTerminal for Mask<T> {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         [ESC, MASK].to_terminal(term)?;
-        let written_bytes = self.0.to_terminal(term)?;
+        self.0.to_terminal(term)?;
         [ESC, UNMASK].to_terminal(term)?;
 
-        Ok(written_bytes + 4)
+        Ok(())
     }
 }
 
@@ -103,14 +103,14 @@ pub struct Repeat<T: ToTerminal>(pub T, pub u8);
 
 impl ToTerminal for Repeat<char> {
     #[inline(always)]
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         repeat(self.0 as u8, self.1).to_terminal(term)
     }
 }
 
 impl ToTerminal for Repeat<u8> {
     #[inline(always)]
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         repeat(self.0, self.1).to_terminal(term)
     }
 }
@@ -118,21 +118,20 @@ impl ToTerminal for Repeat<u8> {
 pub struct SetCursor(pub u8, pub u8);
 
 impl ToTerminal for SetCursor {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         assert!(self.0 > 0);
         assert!(self.0 <= 40);
         assert!(self.1 > 0); //p96
         assert!(self.1 <= 24);
 
         //documented on page 95
-        let mut written_bytes = 0;
-        written_bytes += [ESC, CSI].to_terminal(term)?;
-        written_bytes += to_decimal(self.1).to_terminal(term)?;
-        written_bytes += 0x3B.to_terminal(term)?;
-        written_bytes += to_decimal(self.0).to_terminal(term)?;
-        written_bytes += 0x48.to_terminal(term)?;
+        [ESC, CSI].to_terminal(term)?;
+        to_decimal(self.1).to_terminal(term)?;
+        0x3B.to_terminal(term)?;
+        to_decimal(self.0).to_terminal(term)?;
+        0x48.to_terminal(term)?;
 
-        Ok(written_bytes)
+        Ok(())
     }
 }
 
@@ -147,7 +146,7 @@ pub enum Direction {
 pub struct MoveCursor(pub Direction, pub u8);
 
 impl ToTerminal for MoveCursor {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         if self.1 < 5 {
             let code = match self.0 {
                 Direction::Up => VT,
@@ -165,12 +164,11 @@ impl ToTerminal for MoveCursor {
                 Direction::Left => 0x44,
             };
 
-            let mut written_bytes = 0;
-            written_bytes += [ESC, CSI].to_terminal(term)?;
-            written_bytes += to_decimal(self.1).to_terminal(term)?;
-            written_bytes += direction.to_terminal(term)?;
+            [ESC, CSI].to_terminal(term)?;
+            to_decimal(self.1).to_terminal(term)?;
+            direction.to_terminal(term)?;
 
-            Ok(written_bytes)
+            Ok(())
         }
     }
 }
@@ -195,7 +193,7 @@ impl Videotex<Vec<u8>> {
 
 impl<B: AsRef<[u8]> + ToTerminal> ToTerminal for Videotex<B> {
     #[inline(always)]
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         self.data.to_terminal(term)
     }
 }
@@ -206,7 +204,7 @@ pub enum ScreenMasking {
 }
 
 impl ToTerminal for ScreenMasking {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         match self {
             ScreenMasking::On => [ESC, 0x23, 0x20, MASK].to_terminal(term),
             ScreenMasking::Off => [ESC, 0x23, 0x20, UNMASK].to_terminal(term),

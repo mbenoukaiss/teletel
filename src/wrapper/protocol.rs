@@ -1,5 +1,6 @@
-use crate::codes::SCREEN;
-use crate::specifications::codes::{ESC, PRO1, PRO2, PRO3, REQ_SPEED, RESET, RESP_SPEED, SEP, START, STOP};
+use std::thread;
+use std::time::Duration;
+use crate::specifications::codes::*;
 use crate::terminal::{BaudRate, ReadableTerminal, WriteableTerminal};
 use crate::Error;
 
@@ -34,8 +35,11 @@ pub trait ProtocolExtension: ReadableTerminal + WriteableTerminal {
     fn reset(&mut self) -> Result<(), Error> {
         //p145
         self.discard()?;
-        self.write_all(&[ESC, PRO1, RESET])?;
+        self.write(&[ESC, PRO1, RESET])?;
         self.flush()?;
+
+        //p143
+        thread::sleep(Duration::from_millis(500));
 
         expect_sequence!(self, [SEP, 0x5E])
     }
@@ -43,7 +47,7 @@ pub trait ProtocolExtension: ReadableTerminal + WriteableTerminal {
     #[cfg(feature = "minitel2")]
     fn sleep(&mut self) -> Result<(), Error> {
         self.discard()?;
-        self.write_all(&[ESC, PRO3, START, SCREEN, 0x41])?;
+        self.write(&[ESC, PRO3, START, SCREEN, 0x41])?;
         self.flush()?;
 
         expect_sequence!(self, [SEP, 0x72])
@@ -52,7 +56,7 @@ pub trait ProtocolExtension: ReadableTerminal + WriteableTerminal {
     #[cfg(feature = "minitel2")]
     fn wake(&mut self) -> Result<(), Error> {
         self.discard()?;
-        self.write_all(&[ESC, PRO3, STOP, SCREEN, 0x41])?;
+        self.write(&[ESC, PRO3, STOP, SCREEN, 0x41])?;
         self.flush()?;
 
         expect_sequence!(self, [SEP, 0x72])
@@ -60,7 +64,7 @@ pub trait ProtocolExtension: ReadableTerminal + WriteableTerminal {
 
     fn get_connector_speed(&mut self) -> Result<BaudRate, Error> {
         self.discard()?;
-        self.write_all(&[ESC, PRO1, REQ_SPEED])?;
+        self.write(&[ESC, PRO1, REQ_SPEED])?;
         self.flush()?;
 
         expect_sequence!(self, [ESC, PRO2, RESP_SPEED, speed] => {

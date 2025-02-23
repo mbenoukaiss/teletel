@@ -1,4 +1,4 @@
-use std::io::Result as IoResult;
+use crate::Error;
 use crate::functions::{Direction, MoveCursor, Repeat, SemiGraphic};
 use crate::specifications::codes::{SI, SO};
 use crate::terminal::{ToTerminal, WriteableTerminal};
@@ -13,7 +13,7 @@ impl HLine {
 }
 
 impl ToTerminal for HLine {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         assert!(self.0 <= 40);
 
         let mut character = 0x00;
@@ -43,7 +43,7 @@ impl VLine {
 }
 
 impl ToTerminal for VLine {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         assert!(self.0 <= 22);
 
         let mut character = 0x00;
@@ -56,19 +56,17 @@ impl ToTerminal for VLine {
             character |= sg!(01/01/01);
         }
 
-        let mut written_bytes = 0;
-
-        written_bytes += SO.to_terminal(term)?;
+        SO.to_terminal(term)?;
 
         for _ in 0..self.0 {
-            written_bytes += character.to_terminal(term)?;
-            written_bytes += MoveCursor(Direction::Down, 1).to_terminal(term)?;
-            written_bytes += MoveCursor(Direction::Left, 1).to_terminal(term)?;
+            character.to_terminal(term)?;
+            MoveCursor(Direction::Down, 1).to_terminal(term)?;
+            MoveCursor(Direction::Left, 1).to_terminal(term)?;
         }
 
-        written_bytes += SI.to_terminal(term)?;
+        SI.to_terminal(term)?;
 
-        Ok(written_bytes)
+        Ok(())
     }
 }
 
@@ -82,45 +80,43 @@ impl RectangleOutline {
 }
 
 impl ToTerminal for RectangleOutline {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         assert!(self.0 >= 2 && self.0 <= 40);
         assert!(self.1 >= 2 && self.1 <= 24);
 
         let character_set = RectangleOutlineCharacterSet::new(self.2);
 
-        let mut written_bytes = 0;
-
-        written_bytes += SO.to_terminal(term)?;
-        written_bytes += character_set.top_left_corner.to_terminal(term)?;
-        written_bytes += Repeat(character_set.top_line, self.0 - 2).to_terminal(term)?;
-        written_bytes += character_set.top_right_corner.to_terminal(term)?;
+        SO.to_terminal(term)?;
+        character_set.top_left_corner.to_terminal(term)?;
+        Repeat(character_set.top_line, self.0 - 2).to_terminal(term)?;
+        character_set.top_right_corner.to_terminal(term)?;
 
         for _ in 0..(self.1 - 2) {
-            written_bytes += MoveCursor(Direction::Down, 1).to_terminal(term)?;
-            written_bytes += MoveCursor(Direction::Left, 1).to_terminal(term)?;
-            written_bytes += character_set.right_line.to_terminal(term)?;
+            MoveCursor(Direction::Down, 1).to_terminal(term)?;
+            MoveCursor(Direction::Left, 1).to_terminal(term)?;
+            character_set.right_line.to_terminal(term)?;
         }
 
-        written_bytes += MoveCursor(Direction::Down, 1).to_terminal(term)?;
-        written_bytes += MoveCursor(Direction::Left, 1).to_terminal(term)?;
-        written_bytes += character_set.bottom_right_corner.to_terminal(term)?;
+        MoveCursor(Direction::Down, 1).to_terminal(term)?;
+        MoveCursor(Direction::Left, 1).to_terminal(term)?;
+        character_set.bottom_right_corner.to_terminal(term)?;
 
-        written_bytes += MoveCursor(Direction::Left, self.0 - 2 + 1).to_terminal(term)?;
-        written_bytes += Repeat(character_set.bottom_line, self.0 - 2).to_terminal(term)?;
-        written_bytes += MoveCursor(Direction::Left, self.0 - 2 + 1).to_terminal(term)?;
-        written_bytes += character_set.bottom_left_corner.to_terminal(term)?;
+        MoveCursor(Direction::Left, self.0 - 2 + 1).to_terminal(term)?;
+        Repeat(character_set.bottom_line, self.0 - 2).to_terminal(term)?;
+        MoveCursor(Direction::Left, self.0 - 2 + 1).to_terminal(term)?;
+        character_set.bottom_left_corner.to_terminal(term)?;
 
-        written_bytes += MoveCursor(Direction::Up, self.1 - 1).to_terminal(term)?;
+        MoveCursor(Direction::Up, self.1 - 1).to_terminal(term)?;
 
         for _ in 0..self.1 - 2 {
-            written_bytes += MoveCursor(Direction::Down, 1).to_terminal(term)?;
-            written_bytes += MoveCursor(Direction::Left, 1).to_terminal(term)?;
-            written_bytes += character_set.left_line.to_terminal(term)?;
+            MoveCursor(Direction::Down, 1).to_terminal(term)?;
+            MoveCursor(Direction::Left, 1).to_terminal(term)?;
+            character_set.left_line.to_terminal(term)?;
         }
 
-        written_bytes += SI.to_terminal(term)?;
+        SI.to_terminal(term)?;
         
-        Ok(written_bytes)
+        Ok(())
     }
 }
 
@@ -176,23 +172,21 @@ impl RectangleOutlineCharacterSet {
 pub struct FilledRectangle(pub u8, pub u8);
 
 impl ToTerminal for FilledRectangle {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         assert!(self.0 <= 40);
         assert!(self.1 <= 23);
 
-        let mut written_bytes = 0;
-
-        written_bytes += SO.to_terminal(term)?;
-        written_bytes += Repeat(sg!(11/11/11), self.0).to_terminal(term)?;
+        SO.to_terminal(term)?;
+        Repeat(sg!(11/11/11), self.0).to_terminal(term)?;
 
         for _ in 0..self.1 - 2 {
-            written_bytes += MoveCursor(Direction::Down, 1).to_terminal(term)?;
-            written_bytes += MoveCursor(Direction::Left, self.0).to_terminal(term)?;
-            written_bytes += Repeat(sg!(11/11/11), self.0).to_terminal(term)?;
+            MoveCursor(Direction::Down, 1).to_terminal(term)?;
+            MoveCursor(Direction::Left, self.0).to_terminal(term)?;
+            Repeat(sg!(11/11/11), self.0).to_terminal(term)?;
         }
 
-        written_bytes += SI.to_terminal(term)?;
+        SI.to_terminal(term)?;
 
-        Ok(written_bytes)
+        Ok(())
     }
 }

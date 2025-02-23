@@ -2,9 +2,7 @@
 extern crate teletel;
 
 use std::error::Error;
-use std::thread::sleep;
 use teletel::functions::{Big, Clear, Inverted, SetCursor, Repeat, SemiGraphic};
-use teletel::protocol::ProtocolExtension;
 use teletel::terminal::{SerialTerminal, WriteableTerminal};
 
 /// Displays the Lumon droplet logo from

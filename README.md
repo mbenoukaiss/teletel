@@ -52,10 +52,50 @@ sudo adduser $USER dialout
 ```
 
 ## Features
-- `minitel2` switches to compatibility mode for the Minitel 2. **Enabled by default**
-- `minitel1b` switches to compatibility mode for the Minitel 1B, not strictly necessary 
-  to enable this feature, but it disables some features that are not available on the 
-  Minitel 1B and avoids trying to use them without knowing. **Disabled by default**
-- `colors` when enabled, changes the `Color` enum variants to be the 8 colors available on the 
-  versions of Minitel that support colors instead of grayscale. **Disabled by default**
-- `serial` enables communicating with the Minitel through a USB port. **Disabled by default**
+
+<table>
+    <thead>
+        <tr>
+            <th>Feature</th>
+            <th>Default</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>minitel2</code></td>
+            <td>disabled</td>
+            <td>Compatibility mode for the Minitel 2.</td>
+        </tr>
+        <tr>
+            <td><code>minitel1b</code></td>
+            <td>disabled</td>
+            <td>
+              Compatibility mode for the Minitel 1B, it is not strictly necessary to enable this feature when 
+              dealing with a Minitel 1B, but it disables some features that are not available on the Minitel 
+              1B and avoids trying to use them without knowing.
+            </td>
+        </tr>
+        <tr>
+            <td><code>colors</code></td>
+            <td>disabled</td>
+            <td>
+              Changes the `Color` enum variants to be the 8 colors available on the versions of Minitel that 
+              support colors instead of grayscale.</td>
+        </tr>
+        <tr>
+            <td><code>serial</code></td>
+            <td>disabled</td>
+            <td>Enables communicating with the Minitel through a USB port.</td>
+        </tr>
+        <tr>
+            <td><code>strict</code></td>
+            <td>disabled</td>
+            <td>
+              When enabled, will make the parser return errors and stop consuming input and sending them to 
+              the terminal when encountering an unknown or invalid sequence. If disabled a warning will be
+              logged and the input will be sent to the terminal.
+            </td>
+        </tr>
+    </tbody>
+</table>

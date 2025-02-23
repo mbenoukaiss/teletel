@@ -12,11 +12,9 @@ macro_rules! declare {
 
         impl $(<$($lt$(:$clt$(+$dlt)*)?),+>)? $crate::terminal::ToTerminal for $name $(<$($lt),+>)? {
             #[inline(always)]
-            fn to_terminal(&$self, term: &mut dyn $crate::terminal::WriteableTerminal) -> std::io::Result<usize> {
-                let mut written_bytes = 0;
-                $(written_bytes += $crate::terminal::ToTerminal::to_terminal(&$code, term)?;)+
-
-                Ok(written_bytes)
+            fn to_terminal(&$self, term: &mut dyn $crate::terminal::WriteableTerminal) -> std::result::Result<(), $crate::Error> {
+                $($crate::terminal::ToTerminal::to_terminal(&$code, term)?;)+
+                std::result::Result::Ok(())
             }
         }
     };

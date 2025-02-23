@@ -1,4 +1,5 @@
-use std::io::{Result as IoResult, Write};
+use std::io::Write;
+use crate::Error;
 use crate::parser::{DisplayComponent, Parser};
 use crate::terminal::{Context, Contextualized, ToTerminal, WriteableTerminal};
 
@@ -17,7 +18,7 @@ impl Buffer {
     }
 
     #[inline(always)]
-    pub fn send(&mut self, data: impl ToTerminal) -> IoResult<usize> {
+    pub fn send(&mut self, data: impl ToTerminal) -> Result<(), Error> {
         data.to_terminal(self)
     }
 }
@@ -37,20 +38,22 @@ impl Contextualized for Buffer {
     }
 }
 
-impl Write for Buffer {
+impl WriteableTerminal for Buffer {
     #[inline(always)]
-    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
-        self.parser.consume_all(buf);
-        self.inner.write(buf)
+    fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
+        for byte in buf {
+            self.parser.consume(*byte)?;
+            self.inner.push(*byte);
+        }
+
+        Ok(())
     }
 
     #[inline(always)]
-    fn flush(&mut self) -> IoResult<()> {
-        self.inner.flush()
+    fn flush(&mut self) -> Result<(), Error> {
+        self.inner.flush().map_err(Into::into)
     }
 }
-
-impl WriteableTerminal for Buffer {}
 
 //temporary buffer without parser mainly for tests
 //while there is not a better design
@@ -69,24 +72,23 @@ impl RawBuffer {
     }
 
     #[inline(always)]
-    pub fn send(&mut self, data: impl ToTerminal) -> IoResult<usize> {
+    pub fn send(&mut self, data: impl ToTerminal) -> Result<(), Error> {
         data.to_terminal(self)
     }
 }
 
-impl Write for RawBuffer {
+impl WriteableTerminal for RawBuffer {
     #[inline(always)]
-    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
-        self.inner.write(buf)
+    fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
+        self.inner.extend(buf);
+        Ok(())
     }
 
     #[inline(always)]
-    fn flush(&mut self) -> IoResult<()> {
-        self.inner.flush()
+    fn flush(&mut self) -> Result<(), Error> {
+        self.inner.flush().map_err(Into::into)
     }
 }
-
-impl WriteableTerminal for RawBuffer {}
 
 #[cfg(test)]
 mod tests {

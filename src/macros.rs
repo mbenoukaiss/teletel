@@ -4,7 +4,7 @@ pub use teletel_derive::sg;
 macro_rules! send {
     ($term:expr, [$($code:expr),+ $(,)?]) => {{
         $($crate::terminal::ToTerminal::to_terminal(&$code, $term)?;)+
-        ::std::io::Write::flush($term)
+        $crate::terminal::WriteableTerminal::flush($term)
     }};
     ($term:expr, $code:expr) => {
         send!($term, [$code])
@@ -14,11 +14,10 @@ macro_rules! send {
 #[macro_export]
 macro_rules! list {
     ($($code:expr),+ $(,)?) => {{
-        |term: &mut dyn $crate::terminal::WriteableTerminal| -> std::io::Result<usize> {
-            let mut written_bytes = 0;
-            $(written_bytes += $crate::terminal::ToTerminal::to_terminal(&$code, term)?;)+
+        |term: &mut dyn $crate::terminal::WriteableTerminal| -> std::result::Result<(), $crate::Error> {
+            $($crate::terminal::ToTerminal::to_terminal(&$code, term)?;)+
 
-            std::result::Result::Ok(written_bytes)
+            std::result::Result::Ok(())
         }
     }};
 }
@@ -36,6 +35,15 @@ macro_rules! assert_panics {
         assert!(std::panic::catch_unwind(|| $code).is_err());
     };
 }
+
+#[cfg(test)]
+#[macro_export]
+macro_rules! assert_err {
+    ($code:expr, $expected_err:literal$(,)?) => {
+        assert_eq!(&format!("{}", $code.unwrap_err()), $expected_err);
+    };
+}
+
 
 #[cfg(test)]
 #[macro_export]

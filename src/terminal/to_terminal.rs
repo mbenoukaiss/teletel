@@ -1,20 +1,20 @@
-use std::io::Result as IoResult;
+use crate::Error;
 use crate::specifications::codes::*;
 use crate::terminal::WriteableTerminal;
 
 pub trait ToTerminal {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize>;
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error>;
 }
 
 impl ToTerminal for u8 {
     #[inline(always)]
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         term.write(&[*self])
     }
 }
 
 impl ToTerminal for char {
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         match *self {
             'à' => term.write(&[SS2, GRAVE, b'a']),
             'ä' => term.write(&[SS2, DIAERESIS, b'a']),
@@ -55,40 +55,35 @@ impl ToTerminal for char {
 
 impl ToTerminal for &str {
     #[inline(always)]
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
-        let mut written_bytes = 0;
-        for char in self.chars() {
-            written_bytes += char.to_terminal(term)?;
-        }
-
-        Ok(written_bytes)
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
+        self.chars().try_for_each(|c| c.to_terminal(term))
     }
 }
 
 impl ToTerminal for String {
     #[inline(always)]
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         self.as_str().to_terminal(term)
     }
 }
 
 impl ToTerminal for Vec<u8> {
     #[inline(always)]
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         term.write(self)
     }
 }
 
 impl<const SIZE: usize> ToTerminal for [u8; SIZE] {
     #[inline(always)]
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         term.write(self)
     }
 }
 
-impl<F: Fn(&mut dyn WriteableTerminal) -> IoResult<usize>> ToTerminal for F {
+impl<F: Fn(&mut dyn WriteableTerminal) -> Result<(), Error>> ToTerminal for F {
     #[inline(always)]
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         self(term)
     }
 }
@@ -97,7 +92,6 @@ impl<F: Fn(&mut dyn WriteableTerminal) -> IoResult<usize>> ToTerminal for F {
 mod tests {
     use super::*;
     use std::cmp;
-    use std::io::{Result as IoResult, Read};
     use std::time::Duration;
     use crate::parser::DisplayComponent;
     use crate::terminal::{RawBuffer, Context, Contextualized, ReadableTerminal};
@@ -249,12 +243,11 @@ mod tests {
     fn test_closure() {
         let mut buf = RawBuffer::new();
         (|term: &mut dyn WriteableTerminal| {
-            let mut written_bytes = 0;
-            written_bytes += 'A'.to_terminal(term)?;
-            written_bytes += 'B'.to_terminal(term)?;
-            written_bytes += 'C'.to_terminal(term)?;
+            'A'.to_terminal(term)?;
+            'B'.to_terminal(term)?;
+            'C'.to_terminal(term)?;
 
-            Ok(written_bytes)
+            Ok(())
         }).to_terminal(&mut buf).unwrap();
 
         assert_eq!(buf.data(), [b'A', b'B', b'C']);
@@ -280,8 +273,8 @@ mod tests {
         }
     }
 
-    impl Read for MockReceiver {
-        fn read(&mut self, buffer: &mut [u8]) -> IoResult<usize> {
+    impl ReadableTerminal for MockReceiver {
+        fn read(&mut self, buffer: &mut [u8]) -> Result<usize, Error> {
             let bytes_to_read = cmp::min(buffer.len(), self.buffer.len());
             let read_bytes = self.buffer.drain(..bytes_to_read).collect::<Vec<u8>>();
 
@@ -290,8 +283,6 @@ mod tests {
             Ok(bytes_to_read)
         }
     }
-
-    impl ReadableTerminal for MockReceiver {}
 
     #[test]
     fn test_read_to_vec() {

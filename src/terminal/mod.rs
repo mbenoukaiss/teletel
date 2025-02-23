@@ -4,7 +4,7 @@ mod file;
 mod serial;
 mod to_terminal;
 
-use std::io::{Read, Result as IoResult, Write};
+use std::io::ErrorKind;
 use crate::Error;
 use crate::specifications::codes::{B1200, B300, B4800, ESC, PRO2, PROG};
 #[cfg(feature = "minitel2")]
@@ -21,8 +21,27 @@ pub trait Contextualized {
     fn ctx(&self) -> &Context;
 }
 
-pub trait ReadableTerminal: Read {
-    fn discard(&mut self) -> IoResult<()> {
+pub trait ReadableTerminal {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error>;
+
+    fn read_exact(&mut self, mut buf: &mut [u8]) -> Result<(), Error> {
+        while !buf.is_empty() {
+            match self.read(buf) {
+                Ok(0) => break,
+                Ok(n) => buf = &mut buf[n..],
+                Err(Error::Io(ref e)) if e.kind() == ErrorKind::Interrupted => {}
+                Err(e) => return Err(e),
+            }
+        }
+
+        if buf.is_empty() {
+            Ok(())
+        } else {
+            Err(Error::ReadExactEof)
+        }
+    }
+
+    fn discard(&mut self) ->  Result<(), Error> {
         //todo: stop using this function, put the current buffer
         // aside and just read the protocol sequences we need
         self.read_to_vec()?;
@@ -30,7 +49,7 @@ pub trait ReadableTerminal: Read {
         Ok(())
     }
 
-    fn read_to_vec(&mut self) -> IoResult<Vec<u8>> {
+    fn read_to_vec(&mut self) -> Result<Vec<u8>, Error> {
         let mut data = Vec::new();
 
         let mut buffer = vec![0; 10];
@@ -45,7 +64,7 @@ pub trait ReadableTerminal: Read {
         Ok(data)
     }
 
-    fn read_until_enter(&mut self) -> IoResult<Vec<u8>> {
+    fn read_until_enter(&mut self) -> Result<Vec<u8>, Error> {
         let mut buffer = vec![0; 10];
         let mut data = Vec::new();
 
@@ -67,9 +86,12 @@ pub trait ReadableTerminal: Read {
     }
 }
 
-pub trait WriteableTerminal: Write {}
+pub trait WriteableTerminal {
+    fn write(&mut self, buf: &[u8]) -> Result<(), Error>;
+    fn flush(&mut self) -> Result<(), Error>;
+}
 
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 #[repr(u16)]
 pub enum BaudRate {
     B300 = 300,
@@ -96,7 +118,7 @@ impl TryFrom<u8> for BaudRate {
 
 impl ToTerminal for BaudRate {
     #[inline(always)]
-    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
+    fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
         term.write(&[ESC, PRO2, PROG, match self {
             BaudRate::B300 => B300,
             BaudRate::B1200 => B1200,
