@@ -959,11 +959,11 @@ impl Grid {
         let cells_to_scroll = count.unsigned_abs() as usize * self.width;
 
         if count > 0 {
-            self.data.splice((self.data.len() - cells_to_scroll).., vec![]);
-            self.data.splice(0..0, vec![Cell::default(); cells_to_scroll]);
-        } else {
             self.data.splice(0..cells_to_scroll, vec![]);
             self.data.splice(self.data.len().., vec![Cell::default(); cells_to_scroll]);
+        } else {
+            self.data.splice((self.data.len() - cells_to_scroll).., vec![]);
+            self.data.splice(0..0, vec![Cell::default(); cells_to_scroll]);
         }
     }
 
@@ -1273,7 +1273,15 @@ impl Context {
 
         self.cursor_x = new_x as u8;
         if self.page_mode == PageMode::Scroll {
-            self.grid.scroll(y_offset as i8);
+            let to_scroll = if new_y < 1 {
+                new_y - 1
+            } else if new_y > self.screen_height as i16 {
+                new_y - self.screen_height as i16
+            } else {
+                0
+            } as i8;
+
+            self.grid.scroll(to_scroll);
             self.cursor_y = new_y.clamp(1, self.screen_height as i16) as u8;
         } else {
             self.cursor_y = (new_y - 1).rem_euclid(self.screen_height as i16) as u8 + 1;
