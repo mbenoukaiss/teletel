@@ -104,7 +104,10 @@ pub struct Repeat<T: ToTerminal>(pub T, pub u8);
 impl ToTerminal for Repeat<char> {
     #[inline(always)]
     fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
-        repeat(self.0 as u8, self.1).to_terminal(term)
+        self.0.to_terminal(term)?;
+        repeat_prev(self.1).to_terminal(term)?;
+
+        Ok(())
     }
 }
 
@@ -244,66 +247,66 @@ mod tests {
     fn test_blink() {
         let mut data = RawBuffer::new();
         Blink('A').to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x48, 'A' as u8, 0x1B, 0x49]);
+        assert_eq!(data.data(), [0x1B, 0x48, b'A', 0x1B, 0x49]);
 
         let mut data = RawBuffer::new();
         Blink("bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x48, 'b' as u8, 'o' as u8, 'n' as u8, 'j' as u8, 'o' as u8, 'u' as u8, 'r' as u8, 0x1B, 0x49]);
+        assert_eq!(data.data(), [0x1B, 0x48, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x49]);
     }
 
     #[test]
     fn test_background() {
         let mut data = RawBuffer::new();
-        Background(Color::Gray60, 'A').to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x55, 'A' as u8, 0x1B, 0x50]);
+        Background(Color::Gray60, b'A').to_terminal(&mut data).unwrap();
+        assert_eq!(data.data(), [0x1B, 0x55, b'A', 0x1B, 0x50]);
 
         let mut data = RawBuffer::new();
         Background(Color::Gray90, "bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x53, 'b' as u8, 'o' as u8, 'n' as u8, 'j' as u8, 'o' as u8, 'u' as u8, 'r' as u8, 0x1B, 0x50]);
+        assert_eq!(data.data(), [0x1B, 0x53, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x50]);
     }
 
     #[test]
     fn test_foreground() {
         let mut data = RawBuffer::new();
-        Foreground(Color::Gray70, 'A').to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x42, 'A' as u8, 0x1B, 0x47]);
+        Foreground(Color::Gray70, b'A').to_terminal(&mut data).unwrap();
+        assert_eq!(data.data(), [0x1B, 0x42, b'A', 0x1B, 0x47]);
 
         let mut data = RawBuffer::new();
         Foreground(Color::Gray40, "bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x44, 'b' as u8, 'o' as u8, 'n' as u8, 'j' as u8, 'o' as u8, 'u' as u8, 'r' as u8, 0x1B, 0x47]);
+        assert_eq!(data.data(), [0x1B, 0x44, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x47]);
     }
 
     #[test]
     fn test_inverted() {
         let mut data = RawBuffer::new();
         Inverted('A').to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x5D, 'A' as u8, 0x1B, 0x5C]);
+        assert_eq!(data.data(), [0x1B, 0x5D, b'A', 0x1B, 0x5C]);
 
         let mut data = RawBuffer::new();
         Inverted("bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x5D, 'b' as u8, 'o' as u8, 'n' as u8, 'j' as u8, 'o' as u8, 'u' as u8, 'r' as u8, 0x1B, 0x5C]);
+        assert_eq!(data.data(), [0x1B, 0x5D, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x5C]);
     }
 
     #[test]
     fn test_big() {
         let mut data = RawBuffer::new();
         Big('A').to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x4F, 'A' as u8, 0x1B, 0x4C]);
+        assert_eq!(data.data(), [0x1B, 0x4F, b'A', 0x1B, 0x4C]);
 
         let mut data = RawBuffer::new();
         Big("bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x4F, 'b' as u8, 'o' as u8, 'n' as u8, 'j' as u8, 'o' as u8, 'u' as u8, 'r' as u8, 0x1B, 0x4C]);
+        assert_eq!(data.data(), [0x1B, 0x4F, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x4C]);
     }
 
     #[test]
     fn test_mask() {
         let mut data = RawBuffer::new();
         Mask('A').to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x58, 'A' as u8, 0x1B, 0x5F]);
+        assert_eq!(data.data(), [0x1B, 0x58, b'A', 0x1B, 0x5F]);
 
         let mut data = RawBuffer::new();
         Mask("bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x58, 'b' as u8, 'o' as u8, 'n' as u8, 'j' as u8, 'o' as u8, 'u' as u8, 'r' as u8, 0x1B, 0x5F]);
+        assert_eq!(data.data(), [0x1B, 0x58, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x5F]);
     }
 
     #[test]
@@ -324,7 +327,7 @@ mod tests {
         let mut data = RawBuffer::new();
         Repeat('A', 3).to_terminal(&mut data).unwrap();
 
-        assert_eq!(data.data(), ['A' as u8, 0x12, 0x42]);
+        assert_eq!(data.data(), [b'A', 0x12, 0x42]);
 
         let mut data = RawBuffer::new();
         Repeat(sg!(01/11/01), 3).to_terminal(&mut data).unwrap();

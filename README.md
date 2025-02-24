@@ -1,4 +1,4 @@
-# Teletel
+# 📺 Teletel
 
 It’s 1997, and the Minitel is revolutionizing the way people connect. Since its launch in 1982, this pioneering device
 has already become a global sensation, offering fast and compact ways for people to access everything: telephone 

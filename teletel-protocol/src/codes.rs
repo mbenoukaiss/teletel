@@ -201,6 +201,14 @@ pub const fn repeat(character: u8, count: u8) -> [u8; 3] {
 }
 
 #[inline(always)]
+pub const fn repeat_prev(count: u8) -> [u8; 2] {
+    assert!(count > 0);
+    assert!(count <= 64);
+
+    [REP, 0x40 + count - 1]
+}
+
+#[inline(always)]
 pub const fn to_decimal(value: u8) -> [u8; 2] {
     assert!(value <= 99);
 
@@ -213,15 +221,22 @@ mod tests {
 
     #[test]
     fn test_repeat() {
-        assert_eq!(repeat('A' as u8, 1), ['A' as u8, 0x12, 0x40]);
-        assert_eq!(repeat('B' as u8, 2), ['B' as u8, 0x12, 0x41]);
-        assert_eq!(repeat('C' as u8, 64), ['C' as u8, 0x12, 0x7F]);
+        assert_eq!(repeat(b'A', 1), [b'A', 0x12, 0x40]);
+        assert_eq!(repeat(b'B', 2), [b'B', 0x12, 0x41]);
+        assert_eq!(repeat(b'C', 64), [b'C', 0x12, 0x7F]);
+    }
+
+    #[test]
+    fn test_repeat_prev() {
+        assert_eq!(repeat_prev(1), [0x12, 0x40]);
+        assert_eq!(repeat_prev(2), [0x12, 0x41]);
+        assert_eq!(repeat_prev(64), [0x12, 0x7F]);
     }
 
     #[test]
     fn test_repeat_fails() {
-        assert_panics!(repeat('A' as u8, 0));
-        assert_panics!(repeat('A' as u8, 65));
+        assert_panics!(repeat(b'A', 0));
+        assert_panics!(repeat(b'A', 65));
     }
 
     #[test]

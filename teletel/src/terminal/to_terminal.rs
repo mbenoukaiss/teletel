@@ -48,7 +48,18 @@ impl ToTerminal for char {
             '¼' => term.write(&[SS2, ONE_QUARTER]),
             '½' => term.write(&[SS2, ONE_HALF]),
             '¾' => term.write(&[SS2, THREE_QUARTERS]),
-            c => term.write(unidecode::unidecode_char(c).as_bytes()),
+            c => {
+                if ['{', '|', '}', '~', '`', '^'].contains(self) {
+                    return Err(Error::InvalidCharacter(*self));
+                }
+
+                let decoded = unidecode::unidecode_char(c).as_bytes();
+                if decoded.len() > 1|| decoded[0] < 0x20 || decoded[0] > 0x7F {
+                    return Err(Error::InvalidCharacter(*self));
+                }
+
+                term.write(&decoded[0..1])
+            },
         }
     }
 }

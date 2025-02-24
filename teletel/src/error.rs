@@ -6,6 +6,7 @@ use teletel_protocol::parser::Error as ParseError;
 #[derive(Debug)]
 pub enum Error {
     ConnectionFailure,
+    InvalidCharacter(char),
     UnexpectedSequence(Vec<u8>),
     Io(IoError),
     ReadExactEof,
@@ -16,6 +17,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::ConnectionFailure => write!(f, "Failed to connect to Minitel"),
+            Error::InvalidCharacter(ch) => write!(f, "Character {} is not supported by the Minitel", ch),
             Error::UnexpectedSequence(seq) => write!(f, "Unexpected sequence {:X?}", seq),
             Error::Io(error) => write!(f, "IoError: {}", error),
             Error::ReadExactEof => write!(f, "ReadExactEof"),

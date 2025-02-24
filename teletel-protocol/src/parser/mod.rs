@@ -1559,44 +1559,44 @@ mod tests {
     #[test]
     fn test_special_character_vgp2_specific() {
         let ctx = Context::new(DisplayComponent::VGP2);
-        assert_eq!(SpecialCharacter::Grave(None).consume(&ctx, 'a' as u8), Ok(SpecialCharacter::Grave(Some('a' as u8))));
-        assert_eq!(SpecialCharacter::Acute(None).consume(&ctx, 'e' as u8), Ok(SpecialCharacter::Acute(Some('e' as u8))));
-        assert_eq!(SpecialCharacter::Circumflex(None).consume(&ctx, 'o' as u8), Ok(SpecialCharacter::Circumflex(Some('o' as u8))));
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'i' as u8), Ok(SpecialCharacter::Diaeresis(Some('i' as u8))));
-        assert_eq!(SpecialCharacter::Cedilla(None).consume(&ctx, 'c' as u8), Ok(SpecialCharacter::Cedilla(Some('c' as u8))));
+        assert_eq!(SpecialCharacter::Grave(None).consume(&ctx, b'a'), Ok(SpecialCharacter::Grave(Some(b'a'))));
+        assert_eq!(SpecialCharacter::Acute(None).consume(&ctx, b'e'), Ok(SpecialCharacter::Acute(Some(b'e'))));
+        assert_eq!(SpecialCharacter::Circumflex(None).consume(&ctx, b'o'), Ok(SpecialCharacter::Circumflex(Some(b'o'))));
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, b'i'), Ok(SpecialCharacter::Diaeresis(Some(b'i'))));
+        assert_eq!(SpecialCharacter::Cedilla(None).consume(&ctx, b'c'), Ok(SpecialCharacter::Cedilla(Some(b'c'))));
 
         assert_err!(
-            SpecialCharacter::Acute(None).consume(&ctx, 'a' as u8),
+            SpecialCharacter::Acute(None).consume(&ctx, b'a'),
             "Invalid character for acute accent 0x61",
         );
 
         assert_err!(
-            SpecialCharacter::Acute(None).consume(&ctx, 'o' as u8),
+            SpecialCharacter::Acute(None).consume(&ctx, b'o'),
             "Invalid character for acute accent 0x6F",
         );
 
         assert_err!(
-            SpecialCharacter::Grave(None).consume(&ctx, 'c' as u8),
+            SpecialCharacter::Grave(None).consume(&ctx, b'c'),
             "Invalid character for grave accent 0x63",
         );
 
         assert_err!(
-            SpecialCharacter::Cedilla(None).consume(&ctx, 'i' as u8),
+            SpecialCharacter::Cedilla(None).consume(&ctx, b'i'),
             "Invalid character for cedilla 0x69",
         );
 
         assert_err!(
-            SpecialCharacter::Diaeresis(None).consume(&ctx, 'a' as u8),
+            SpecialCharacter::Diaeresis(None).consume(&ctx, b'a'),
             "Invalid character for diaeresis 0x61",
         );
 
         assert_err!(
-            SpecialCharacter::Diaeresis(None).consume(&ctx, 'o' as u8),
+            SpecialCharacter::Diaeresis(None).consume(&ctx, b'o'),
             "Invalid character for diaeresis 0x6F",
         );
 
         assert_err!(
-            SpecialCharacter::Diaeresis(None).consume(&ctx, 'u' as u8),
+            SpecialCharacter::Diaeresis(None).consume(&ctx, b'u'),
             "Invalid character for diaeresis 0x75",
         );
 
@@ -1616,9 +1616,9 @@ mod tests {
     #[test]
     fn test_special_character_vgp5_specific() {
         let ctx = Context::new(DisplayComponent::VGP5);
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'a' as u8), Ok(SpecialCharacter::Diaeresis(Some('a' as u8))));
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'o' as u8), Ok(SpecialCharacter::Diaeresis(Some('o' as u8))));
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, 'u' as u8), Ok(SpecialCharacter::Diaeresis(Some('u' as u8))));
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, b'a'), Ok(SpecialCharacter::Diaeresis(Some(b'a'))));
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, b'o'), Ok(SpecialCharacter::Diaeresis(Some(b'o'))));
+        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, b'u'), Ok(SpecialCharacter::Diaeresis(Some(b'u'))));
         assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ESZETT), Ok(SpecialCharacter::Eszett));
         assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, PARAGRAPH), Ok(SpecialCharacter::Paragraph));
     }
