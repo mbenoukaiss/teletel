@@ -42,13 +42,13 @@ impl Display for Error {
     }
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum DisplayComponent {
     VGP2,
     VGP5,
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum PageMode {
     Page,
     Scroll,
@@ -343,7 +343,9 @@ enum Protocol {
     Reset,
     RequestSpeed,
     SetSpeed(Option<u8>),
-    Toggle(bool),
+    Toggle2(bool),
+    Toggle3(bool),
+    Scroll(bool),
     ToggleScreen(bool),
     Sleep(bool),
 }
@@ -373,17 +375,23 @@ impl Parsable for Protocol {
             },
             Protocol::Pro2 => match byte {
                 PROG => Protocol::SetSpeed(None),
+                START => Protocol::Toggle2(true),
+                STOP => Protocol::Toggle2(false),
                 _ => err!("Unsupported or invalid PRO2 sequence starting with {:#04X}", byte)
             },
             Protocol::Pro3 => match byte {
-                START => Protocol::Toggle(true),
-                STOP => Protocol::Toggle(false),
+                START => Protocol::Toggle3(true),
+                STOP => Protocol::Toggle3(false),
                 _ => err!("Unsupported or invalid PRO3 sequence starting with {:#04X}", byte)
             },
             Protocol::SetSpeed(None) => Protocol::SetSpeed(Some(byte)),
-            Protocol::Toggle(value) => match byte {
+            Protocol::Toggle2(value) => match byte {
+                SCROLL => Protocol::Scroll(*value),
+                _ => err!("Unsupported or invalid PRO2 start/stop sequence starting with {:#04X}", byte)
+            },
+            Protocol::Toggle3(value) => match byte {
                 SCREEN => Protocol::ToggleScreen(*value),
-                _ => err!("Unsupported or invalid protocol start/stop sequence starting with {:#04X}", byte)
+                _ => err!("Unsupported or invalid PRO3 start/stop sequence starting with {:#04X}", byte)
             },
             Protocol::ToggleScreen(value) => match byte {
                 0x41 => Protocol::Sleep(*value),
@@ -396,7 +404,7 @@ impl Parsable for Protocol {
     }
 
     fn is_complete(&self) -> bool {
-        !matches!(self, Protocol::Pro1 | Protocol::Pro2 | Protocol::Pro3 | Protocol::SetSpeed(None) | Protocol::Toggle(_) | Protocol::ToggleScreen(_))
+        !matches!(self, Protocol::Pro1 | Protocol::Pro2 | Protocol::Pro3 | Protocol::SetSpeed(None) | Protocol::Toggle2(_) | Protocol::Toggle3(_) | Protocol::ToggleScreen(_))
     }
 }
 
@@ -1075,6 +1083,7 @@ impl Context {
             screen_width: 40,
             screen_height: 24,
 
+            //defaults are documented page 87 and 88
             attributes: Attributes::default(),
             page_mode: PageMode::Page,
             cursor_x: 1,
@@ -1097,7 +1106,6 @@ impl Context {
         match sequence {
             Sequence::Incomplete => {}
             Sequence::Escaped(esc) => match esc {
-                //todo: seulement en mode alphabétique sinon on applique direct?
                 EscapedSequence::Background(color) => self.pending_attributes.set_background(*color),
                 EscapedSequence::Foreground(color) => self.attributes.foreground = *color,
                 EscapedSequence::Csi(csi) => match csi {
@@ -1149,12 +1157,22 @@ impl Context {
                     self.attributes.double_height = true;
                     self.attributes.double_width = true;
                 },
-                //todo: seulement en mode alphabétique sinon on applique direct?
                 EscapedSequence::Underline(underline) => self.pending_attributes.set_underline(*underline),
-                //todo: seulement en mode alphabétique sinon on applique direct?
                 EscapedSequence::Mask(mask) => self.pending_attributes.set_mask(*mask),
                 EscapedSequence::Ignore(Some(ignore)) => self.ignore_sequences = *ignore,
-                EscapedSequence::Protocol(_) => {} //todo: handle
+                EscapedSequence::Protocol(pro) => match pro { //todo: impl missing sequences
+                    Protocol::Reset => *self = Self::new(self.display_component),
+                    Protocol::RequestSpeed => {}
+                    Protocol::SetSpeed(_) => {}
+                    //todo: not actually parse this but the response
+                    Protocol::Scroll(scroll) => if *scroll {
+                        self.page_mode = PageMode::Scroll;
+                    } else {
+                        self.page_mode = PageMode::Page;
+                    },
+                    Protocol::Sleep(_) => {}
+                    _ => panic!("Received incomplete protocol sequence {:?}", pro),
+                },
                 EscapedSequence::GetCursorPosition => {} //todo: handle
                 EscapedSequence::ScreenMasking(mask) => self.screen_mask = *mask,
                 _ => panic!("Received incomplete escaped sequence {:?}", esc),
@@ -1258,7 +1276,7 @@ impl Context {
             self.grid.scroll(y_offset as i8);
             self.cursor_y = new_y.clamp(1, self.screen_height as i16) as u8;
         } else {
-            self.cursor_y = new_y.rem_euclid(self.screen_height as i16) as u8;
+            self.cursor_y = (new_y - 1).rem_euclid(self.screen_height as i16) as u8 + 1;
         }
 
         if y_offset != 0 {

@@ -26,6 +26,11 @@ macro_rules! expect_sequence {
     }};
 }
 
+pub enum PageMode {
+    Page,
+    Scroll,
+}
+
 pub trait SpeedAwareTerminal {
     fn match_connector_speed(&mut self) -> Result<(), Error>;
     fn set_connector_speed(&mut self, baud_rate: BaudRate) -> Result<(), Error>;
@@ -71,24 +76,31 @@ pub trait ProtocolExtension: ReadableTerminal + WriteableTerminal {
             BaudRate::try_from(*speed)
         })
     }
+
+    fn set_page_mode(&mut self, mode: PageMode) -> Result<(), Error> {
+        self.write(&[ESC, PRO2, match mode {
+            PageMode::Page => STOP,
+            PageMode::Scroll => START,
+        }, SCROLL])?;
+
+        let mut response = vec![0; 4];
+        self.read_exact(&mut response)?;
+
+        if response[0] != ESC || response[1] != PRO2 || response[2] != STATE_RESPONSE {
+            return Err(Error::UnexpectedSequence(response));
+        }
+
+        let is_scroll_enabled = response[3] & PAGE_MODE;
+
+        match mode {
+            PageMode::Page if is_scroll_enabled == 0 => Ok(()),
+            PageMode::Scroll if is_scroll_enabled != 0 => Ok(()),
+            _ => Err(Error::UnexpectedSequence(response)),
+        }
+    }
 }
 
 impl<T: ReadableTerminal + WriteableTerminal> ProtocolExtension for T {}
-
-// à gérer en extension de protocole
-// pub enum PageMode {
-//     Page,
-//     Scroll,
-// }
-//
-// impl ToTerminal for PageMode {
-//     fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> IoResult<usize> {
-//         match self {
-//             PageMode::Page => term.write(&[ESC, PRO2, STOP, SCROLL]),
-//             PageMode::Scroll => term.write(&[ESC, PRO2, START, SCROLL]),
-//         }
-//     }
-// }
 
 //uniquement en standard teleinformatique, pas encore assez bien compris et
 //géré par la librairie pour être implémenté, porterait juste à confusion

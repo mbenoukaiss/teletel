@@ -3,7 +3,6 @@ use std::fmt::{Debug, Display};
 use std::io::Error as IoError;
 use teletel_protocol::parser::Error as ParseError;
 
-#[derive(Debug)]
 pub enum Error {
     ConnectionFailure,
     InvalidCharacter(char),
@@ -23,6 +22,12 @@ impl Display for Error {
             Error::ReadExactEof => write!(f, "ReadExactEof"),
             Error::Parse(error) => write!(f, "ParseError: {}", error)
         }
+    }
+}
+
+impl Debug for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 

@@ -173,6 +173,11 @@ pub mod proto {
     pub const STATE_RESPONSE: u8 = 0x73; //p143
     pub const RESET: u8 = 0x7F; //p145
     pub const SCREEN: u8 = 0x58;
+
+    pub const LOWERCASE: u8 = 0b0000_1000; //p143
+    pub const PCE: u8 = 0b0000_0100; //p143
+    pub const PAGE_MODE: u8 = 0b0000_0010; //p143
+    pub const EIGHTY_COLUMNS: u8 = 0b0000_0001; //p143
 }
 
 pub use c0::*;
