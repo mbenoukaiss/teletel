@@ -1,10 +1,10 @@
 [workspace]
-members = ["teletel", "teletel-*", "examples/*"]
-default-members = ["teletel", "teletel-*"]
+members = ["teletel", "teletel-*", "minitel-emulator", "examples/*"]
+default-members = ["teletel", "teletel-*", "minitel-emulator"]
 resolver = "2"
 
 [workspace.package]
-rust-version = "1.75"
+rust-version = "1.96"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -14,3 +14,15 @@ missing_debug_implementations = "warn"
 missing_docs = "warn"
 unreachable_pub = "warn"
 
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
+incremental = false
+debug = false
