@@ -819,7 +819,7 @@ impl Parsable for Sequence {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Copy, Clone)]
 pub struct PendingAttributes {
     apply_on_delimiter: bool,
     background: Option<u8>,
@@ -1200,7 +1200,7 @@ impl Grid {
         let mut row = self.data[row_start..row_end].to_vec();
         let delete_from = x as usize - 1;
         row.drain(delete_from..delete_from + count as usize);
-        row.extend(std::iter::repeat(Cell::space(attributes, false)).take(count as usize));
+        row.extend(std::iter::repeat_n(Cell::space(attributes, false), count as usize));
         row.truncate(self.width);
 
         self.data.splice(row_start..row_end, row);
@@ -1288,6 +1288,15 @@ pub struct Context {
 
     pub grid: Grid,
     pub pending_attributes: PendingAttributes,
+    saved_state_for_row_zero: Option<SavedState>,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct SavedState {
+    cursor_x: u8,
+    cursor_y: u8,
+    attributes: Attributes,
+    pending_attributes: PendingAttributes,
 }
 
 impl Context {
@@ -1309,6 +1318,7 @@ impl Context {
 
             grid: Grid::new(40, 24),
             pending_attributes: PendingAttributes::default(),
+            saved_state_for_row_zero: None,
         }
     }
 
@@ -1333,13 +1343,13 @@ impl Context {
                     //these four sequences do not support wrapping and the cursor will just
                     //stop moving when it reaches the border of the screen (p94 and 95)
                     //todo: check if we need to copy zone attributes as well ? probably need to copy on all operations ?
-                    Csi::MoveUp(offset) => self.move_cursor_y(-(*offset as i8), false),
-                    Csi::MoveDown(offset) => self.move_cursor_y(*offset as i8, false),
-                    Csi::MoveRight(offset) => self.move_cursor_x(*offset as i8, false),
-                    Csi::MoveLeft(offset) => self.move_cursor_x(-(*offset as i8), false),
+                    Csi::MoveUp(offset) => self.move_cursor_y(-(*offset as i8), false)?,
+                    Csi::MoveDown(offset) => self.move_cursor_y(*offset as i8, false)?,
+                    Csi::MoveRight(offset) => self.move_cursor_x(*offset as i8, false)?,
+                    Csi::MoveLeft(offset) => self.move_cursor_x(-(*offset as i8), false)?,
 
                     Csi::SetCursor(x, y) => {
-                        self.set_cursor(*x, *y, false);
+                        self.set_cursor(*x, *y, false)?;
                     }
                     Csi::InsertRowsFromCursor(count) => {
                         self.grid.insert_rows_after(*count, self.cursor_y)
@@ -1383,7 +1393,7 @@ impl Context {
                     }
                     Csi::StartInsert => self.insert = true,
                     Csi::EndInsert => self.insert = false,
-                    _ => panic!("Received incomplete CSI sequence {:?}", csi),
+                    _ => err!("Received incomplete CSI sequence {:?}", csi),
                 },
                 EscapedSequence::NormalSize
                 | EscapedSequence::DoubleSize
@@ -1392,7 +1402,7 @@ impl Context {
                 | EscapedSequence::Invert(_)
                     if self.attributes.character_set == CharacterSet::G1 =>
                 {
-                    panic!("Changing invert and character size while in G1 is not supported");
+                    err!("Changing invert and character size while in G1 is not supported");
                 }
                 EscapedSequence::Blink(blink) => self.attributes.blinking = *blink,
                 EscapedSequence::Invert(invert) => self.attributes.invert = *invert,
@@ -1403,8 +1413,7 @@ impl Context {
                 EscapedSequence::DoubleHeight | EscapedSequence::DoubleSize
                     if self.cursor_y <= 1 =>
                 {
-                    panic!("Tried to set double height or double size while in row 0 or 1");
-                    //p93
+                    err!("Tried to set double height or double size while in row 0 or 1");
                 }
                 EscapedSequence::DoubleHeight => self.attributes.double_height = true,
                 EscapedSequence::DoubleWidth => self.attributes.double_width = true,
@@ -1431,11 +1440,11 @@ impl Context {
                         }
                     }
                     Protocol::Sleep(_) => {}
-                    _ => panic!("Received incomplete protocol sequence {:?}", pro),
+                    _ => err!("Received incomplete protocol sequence {:?}", pro),
                 },
                 EscapedSequence::GetCursorPosition => {} //todo: handle
                 EscapedSequence::ScreenMasking(mask) => self.screen_mask = *mask,
-                _ => panic!("Received incomplete escaped sequence {:?}", esc),
+                _ => err!("Received incomplete escaped sequence {:?}", esc),
             },
             Sequence::SetCharacterSet(set) => {
                 self.attributes.character_set = *set;
@@ -1449,28 +1458,40 @@ impl Context {
                     self.attributes.double_width = false;
                 }
             }
-            Sequence::SpecialCharacter(character) => self.print(character.to_character()?),
-            Sequence::SimpleCharacter(character) => self.print(character.to_character()?),
-            Sequence::SemiGraphicCharacter(character) => self.print(character.0 as char),
+            Sequence::SpecialCharacter(character) => self.print(character.to_character()?)?,
+            Sequence::SimpleCharacter(character) => self.print(character.to_character()?)?,
+            Sequence::SemiGraphicCharacter(character) => self.print(character.0 as char)?,
             Sequence::MoveCursor(direction) => match direction {
-                Direction::Up => self.move_cursor_y(-1, true),
-                Direction::Down => self.move_cursor_y(1, true),
-                Direction::Right => self.move_cursor_x(1, true),
-                Direction::Left => self.move_cursor_x(-1, true),
+                Direction::Up => self.move_cursor_y(-1, true)?,
+                Direction::Down => self.move_cursor_y(1, true)?,
+                Direction::Right => self.move_cursor_x(1, true)?,
+                Direction::Left => self.move_cursor_x(-1, true)?,
             },
             //todo: check if we should reset attributes or not
             Sequence::CarriageReturn => self.cursor_x = 1,
             Sequence::RecordSeparator => {
-                self.set_cursor(1, 1, false);
+                self.set_cursor(1, 1, false)?;
                 self.reset_attributes();
             }
             Sequence::ClearScreen => {
-                self.set_cursor(1, 1, false);
+                self.set_cursor(1, 1, false)?;
                 self.reset_screen();
             }
-            Sequence::SubSection(x, y) => {
+            Sequence::SubSection(row, column) => {
                 //the only way to access row 0 documented p97
-                self.set_cursor(x.unwrap(), y.unwrap(), true);
+                let row = row.unwrap();
+                let column = column.unwrap();
+
+                if row == 0 && self.cursor_y != 0 {
+                    self.saved_state_for_row_zero = Some(SavedState {
+                        cursor_x: self.cursor_x,
+                        cursor_y: self.cursor_y,
+                        attributes: self.attributes,
+                        pending_attributes: self.pending_attributes,
+                    });
+                }
+
+                self.set_cursor(column, row, true)?;
                 self.reset_attributes();
             }
             Sequence::Repeat(value) => {
@@ -1480,14 +1501,14 @@ impl Context {
                     .map(|cell| cell.content)
                 {
                     if previous_char == '\0' {
-                        panic!("Tried to repeat a character but no character was present");
+                        err!("Tried to repeat a character but no character was present");
                     }
 
                     for _ in 0..value.unwrap() {
-                        self.print(previous_char);
+                        self.print(previous_char)?;
                     }
                 } else {
-                    panic!("Tried to repeat a character at the beginning of the screen");
+                    err!("Tried to repeat a character at the beginning of the screen");
                 }
             }
             Sequence::VisibleCursor(value) => self.visible_cursor = *value,
@@ -1497,11 +1518,11 @@ impl Context {
         Ok(())
     }
 
-    fn set_cursor(&mut self, x: u8, y: u8, allow_row_zero: bool) {
+    fn set_cursor(&mut self, x: u8, y: u8, allow_row_zero: bool) -> Result<(), Error> {
         let minimum_y = if allow_row_zero { 0 } else { 1 };
 
         if x > self.screen_width || x < 1 || y > self.screen_height || y < minimum_y {
-            panic!("Tried to move cursor outside of screen ({}, {})", x, y);
+            err!("Tried to move cursor outside of screen ({}, {})", x, y);
         }
 
         self.cursor_x = x;
@@ -1513,20 +1534,23 @@ impl Context {
         } else {
             self.attributes.reset_zone_attributes();
         }
+
+        Ok(())
     }
 
     /// Moves the cursor horizontally by the given amount of characters.
     /// If the cursor reaches the end of the screen, it will wrap to the
     /// next line if `wrap` is set to `true` else it will stay at the border.
     /// This function does not allow moving in row 0 (not yet implemented, p97)
-    fn move_cursor_x(&mut self, x: i8, wrap: bool) {
+    fn move_cursor_x(&mut self, x: i8, wrap: bool) -> Result<(), Error> {
         if self.cursor_y == 0 {
-            todo!("Moving cursor in row 0 is not yet supported");
+            self.cursor_x = (self.cursor_x as i8 + x).clamp(1, self.screen_width as i8) as u8;
+            return Ok(());
         }
 
         if !wrap {
             self.cursor_x = (self.cursor_x as i8 + x).clamp(1, self.screen_width as i8) as u8;
-            return;
+            return Ok(());
         }
 
         let x_translation_total = self.cursor_x as i16 + x as i16 - 1;
@@ -1553,6 +1577,8 @@ impl Context {
         if y_offset != 0 {
             self.attributes.reset_zone_attributes();
         }
+
+        Ok(())
     }
 
     /// Moves the cursor vertically by the given amount of characters.
@@ -1561,14 +1587,18 @@ impl Context {
     /// else it will stay at the border.
     /// This function does not allow accessing row 0 however it should
     /// allow getting out of row 0 (not yet implemented, p97)
-    fn move_cursor_y(&mut self, y: i8, wrap: bool) {
+    fn move_cursor_y(&mut self, y: i8, wrap: bool) -> Result<(), Error> {
         if self.cursor_y == 0 {
-            todo!("Moving cursor in row 0 is not yet supported");
+            if y > 0 {
+                self.exit_row_zero()?;
+            }
+
+            return Ok(());
         }
 
         if !wrap {
             self.cursor_y = (self.cursor_y as i8 + y).clamp(1, self.screen_height as i8) as u8;
-            return;
+            return Ok(());
         }
 
         let new_y = self.cursor_y as i16 + y as i16;
@@ -1589,6 +1619,8 @@ impl Context {
         }
 
         self.attributes.reset_zone_attributes();
+
+        Ok(())
     }
 
     fn fill_with_spaces_to_eol(&mut self) {
@@ -1602,7 +1634,7 @@ impl Context {
         }
     }
 
-    fn print(&mut self, character: char) {
+    fn print(&mut self, character: char) -> Result<(), Error> {
         if self.insert {
             let width = if self.attributes.double_width { 2 } else { 1 };
             self.grid
@@ -1625,12 +1657,14 @@ impl Context {
         self.grid
             .recalculate_row_attributes(self.cursor_x, self.cursor_y);
 
-        self.next(1);
+        self.next(1)?;
+
+        Ok(())
     }
 
     /// Moves the cursor to the right by the given amount of characters.
     /// If the cursor reaches the end of the screen, it will wrap to the next line.
-    fn next(&mut self, amount: u8) {
+    fn next(&mut self, amount: u8) -> Result<(), Error> {
         //todo: check how double width and height behave when multiline
         //todo: check zone attributes with double width and height
         let amount = if self.attributes.double_width {
@@ -1639,18 +1673,33 @@ impl Context {
             amount
         } as i8;
 
-        self.move_cursor_x(amount, true);
+        self.move_cursor_x(amount, true)
     }
 
     fn reset_screen(&mut self) {
         self.grid.reset();
         self.attributes.reset();
         self.pending_attributes.reset();
+        self.saved_state_for_row_zero = None;
     }
 
     fn reset_attributes(&mut self) {
         self.attributes.reset();
         self.pending_attributes.reset();
+    }
+
+    fn exit_row_zero(&mut self) -> Result<(), Error> {
+        if let Some(saved_state) = self.saved_state_for_row_zero.take() {
+            self.cursor_x = saved_state.cursor_x;
+            self.cursor_y = saved_state.cursor_y;
+            self.attributes = saved_state.attributes;
+            self.pending_attributes = saved_state.pending_attributes;
+        } else {
+            self.set_cursor(1, 1, false)?;
+            self.reset_attributes();
+        }
+
+        Ok(())
     }
 }
 
@@ -1684,9 +1733,21 @@ impl Parser {
         };
 
         if cfg!(feature = "strict") {
-            result()
+            result().or_else(|err| {
+                if self.sequence != Sequence::Incomplete && byte < 0x20 && byte != 0x00 {
+                    self.sequence = Sequence::Incomplete;
+                    self.consume(byte)
+                } else {
+                    Err(err)
+                }
+            })
         } else {
             if let Err(err) = result() {
+                if self.sequence != Sequence::Incomplete && byte < 0x20 && byte != 0x00 {
+                    self.sequence = Sequence::Incomplete;
+                    return self.consume(byte);
+                }
+
                 //todo: use logging library
                 eprintln!("{}", err);
             }
@@ -2426,16 +2487,16 @@ mod tests {
     fn test_insert_mode_shifts_row_only() {
         let mut ctx = Context::new(DisplayComponent::VGP2);
 
-        ctx.print('A');
-        ctx.print('B');
-        ctx.print('C');
+        ctx.print('A').unwrap();
+        ctx.print('B').unwrap();
+        ctx.print('C').unwrap();
 
-        ctx.set_cursor(1, 2, false);
-        ctx.print('Y');
+        ctx.set_cursor(1, 2, false).unwrap();
+        ctx.print('Y').unwrap();
 
-        ctx.set_cursor(2, 1, false);
+        ctx.set_cursor(2, 1, false).unwrap();
         ctx.insert = true;
-        ctx.print('Z');
+        ctx.print('Z').unwrap();
 
         assert_eq!(ctx.grid.cell(1, 1).content, 'A');
         assert_eq!(ctx.grid.cell(2, 1).content, 'Z');
@@ -2449,12 +2510,12 @@ mod tests {
         let mut ctx = Context::new(DisplayComponent::VGP2);
         ctx.attributes.foreground = RED;
 
-        ctx.print('A');
-        ctx.print('B');
-        ctx.print('C');
-        ctx.print('D');
+        ctx.print('A').unwrap();
+        ctx.print('B').unwrap();
+        ctx.print('C').unwrap();
+        ctx.print('D').unwrap();
 
-        ctx.set_cursor(2, 1, false);
+        ctx.set_cursor(2, 1, false).unwrap();
         ctx.consume(&Sequence::Escaped(EscapedSequence::Csi(
             Csi::ClearAfterCursor(2),
         )))
@@ -2479,7 +2540,7 @@ mod tests {
         let mut ctx = Context::new(DisplayComponent::VGP2);
         ctx.cursor_y = ctx.screen_height;
 
-        ctx.move_cursor_y(1, true);
+        ctx.move_cursor_y(1, true).unwrap();
         assert_eq!(ctx.cursor_y, 1);
     }
 
@@ -2497,5 +2558,134 @@ mod tests {
         assert_eq!(ctx.attributes.character_set, CharacterSet::G0);
         assert_eq!(ctx.attributes.foreground, WHITE);
         assert!(!ctx.attributes.blinking);
+    }
+
+    #[test]
+    fn test_ss2_in_g1_returns_error() {
+        let mut ctx = Context::new(DisplayComponent::VGP2);
+        ctx.attributes.character_set = CharacterSet::G1;
+
+        assert_err!(
+            SpecialCharacter::new(&ctx, SS2),
+            "Special characters are not supported in G1"
+        );
+    }
+
+    #[test]
+    fn test_ss2_with_c0_resynchronizes() {
+        let mut parser = Parser::new(DisplayComponent::VGP2);
+        parser.consume(SS2).unwrap();
+        parser.consume(RS).unwrap();
+
+        assert_eq!(parser.ctx.cursor_x, 1);
+        assert_eq!(parser.ctx.cursor_y, 1);
+        assert_eq!(parser.ctx.attributes.character_set, CharacterSet::G0);
+    }
+
+    #[test]
+    fn test_row_zero_entry_and_exit_restore_context() {
+        let mut parser = Parser::new(DisplayComponent::VGP2);
+        parser.ctx.cursor_x = 12;
+        parser.ctx.cursor_y = 7;
+        parser.ctx.attributes.foreground = RED;
+        parser.ctx.attributes.background = BLUE;
+        parser.ctx.pending_attributes.set_mask(true);
+
+        parser.consume(US).unwrap();
+        parser.consume(0x40).unwrap();
+        parser.consume(0x45).unwrap();
+
+        assert_eq!(parser.ctx.cursor_x, 5);
+        assert_eq!(parser.ctx.cursor_y, 0);
+        assert_eq!(parser.ctx.attributes.foreground, WHITE);
+        assert_eq!(parser.ctx.attributes.background, BLACK);
+
+        parser.consume(HT).unwrap();
+        assert_eq!(parser.ctx.cursor_x, 6);
+        assert_eq!(parser.ctx.cursor_y, 0);
+
+        parser.consume(LF).unwrap();
+        assert_eq!(parser.ctx.cursor_x, 12);
+        assert_eq!(parser.ctx.cursor_y, 7);
+        assert_eq!(parser.ctx.attributes.foreground, RED);
+        assert_eq!(parser.ctx.attributes.background, BLUE);
+        assert!(parser.ctx.pending_attributes.mask.unwrap());
+    }
+
+    #[test]
+    fn test_g1_size_and_invert_sequences_return_errors() {
+        let mut ctx = Context::new(DisplayComponent::VGP2);
+        ctx.attributes.character_set = CharacterSet::G1;
+
+        assert_err!(
+            ctx.consume(&Sequence::Escaped(EscapedSequence::DoubleWidth)),
+            "Changing invert and character size while in G1 is not supported"
+        );
+        assert_err!(
+            ctx.consume(&Sequence::Escaped(EscapedSequence::DoubleHeight)),
+            "Changing invert and character size while in G1 is not supported"
+        );
+        assert_err!(
+            ctx.consume(&Sequence::Escaped(EscapedSequence::DoubleSize)),
+            "Changing invert and character size while in G1 is not supported"
+        );
+        assert_err!(
+            ctx.consume(&Sequence::Escaped(EscapedSequence::Invert(true))),
+            "Changing invert and character size while in G1 is not supported"
+        );
+    }
+
+    #[test]
+    fn test_repeat_without_previous_character_returns_errors() {
+        let mut ctx = Context::new(DisplayComponent::VGP2);
+
+        assert_err!(
+            ctx.consume(&Sequence::Repeat(Some(3))),
+            "Tried to repeat a character at the beginning of the screen"
+        );
+    }
+
+    #[test]
+    fn test_double_size_in_row_one_returns_errors() {
+        let mut ctx = Context::new(DisplayComponent::VGP2);
+        ctx.cursor_y = 1;
+
+        assert_err!(
+            ctx.consume(&Sequence::Escaped(EscapedSequence::DoubleHeight)),
+            "Tried to set double height or double size while in row 0 or 1"
+        );
+        assert_err!(
+            ctx.consume(&Sequence::Escaped(EscapedSequence::DoubleSize)),
+            "Tried to set double height or double size while in row 0 or 1"
+        );
+    }
+
+    #[cfg(not(feature = "strict"))]
+    #[test]
+    fn test_parser_non_strict_logs_and_continues_after_semantic_error() {
+        let mut parser = Parser::new(DisplayComponent::VGP2);
+        parser.ctx.attributes.character_set = CharacterSet::G1;
+
+        assert_eq!(parser.consume(ESC), Ok(()));
+        assert_eq!(parser.consume(DOUBLE_WIDTH), Ok(()));
+        assert_eq!(parser.consume(SI), Ok(()));
+        assert_eq!(parser.consume(b'A'), Ok(()));
+
+        assert_eq!(parser.ctx.grid.cell(1, 1).content, 'A');
+        assert_eq!(parser.ctx.cursor_x, 2);
+        assert_eq!(parser.ctx.attributes.character_set, CharacterSet::G0);
+    }
+
+    #[cfg(feature = "strict")]
+    #[test]
+    fn test_parser_strict_returns_semantic_error() {
+        let mut parser = Parser::new(DisplayComponent::VGP2);
+        parser.ctx.attributes.character_set = CharacterSet::G1;
+
+        assert_eq!(parser.consume(ESC), Ok(()));
+        assert_err!(
+            parser.consume(DOUBLE_WIDTH),
+            "Changing invert and character size while in G1 is not supported"
+        );
     }
 }

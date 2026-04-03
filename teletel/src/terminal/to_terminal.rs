@@ -114,7 +114,7 @@ mod tests {
         'A'.to_terminal(&mut buf).unwrap();
         [0x02, 0x03].to_terminal(&mut buf).unwrap();
         vec![0x02, 0x03].to_terminal(&mut buf).unwrap();
-        (&[0x02, 0x03]).to_terminal(&mut buf).unwrap();
+        [0x02, 0x03].to_terminal(&mut buf).unwrap();
         "bonjour".to_terminal(&mut buf).unwrap();
 
         assert_eq!(buf.data(), [
@@ -333,4 +333,3 @@ mod tests {
         assert_eq!(data, [0x01, 0x02, 0x03]);
     }
 }
-

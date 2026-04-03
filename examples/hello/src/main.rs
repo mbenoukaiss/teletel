@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             Clear,
             SetCursor(9, 11),
             Foreground(
-                Color::Gray80,
+                Color::Cyan,
                 list![
                     Repeat('H', 3),
                     Repeat('E', 3),

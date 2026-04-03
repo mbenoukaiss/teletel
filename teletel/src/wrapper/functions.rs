@@ -222,6 +222,26 @@ mod tests {
     use std::{env, fs};
     use teletel_derive::sg;
 
+    #[cfg(feature = "colors")]
+    const TEST_BACKGROUND_COLOR_A: Color = Color::Magenta;
+    #[cfg(not(feature = "colors"))]
+    const TEST_BACKGROUND_COLOR_A: Color = Color::Gray60;
+
+    #[cfg(feature = "colors")]
+    const TEST_BACKGROUND_COLOR_B: Color = Color::Yellow;
+    #[cfg(not(feature = "colors"))]
+    const TEST_BACKGROUND_COLOR_B: Color = Color::Gray90;
+
+    #[cfg(feature = "colors")]
+    const TEST_FOREGROUND_COLOR_A: Color = Color::Green;
+    #[cfg(not(feature = "colors"))]
+    const TEST_FOREGROUND_COLOR_A: Color = Color::Gray70;
+
+    #[cfg(feature = "colors")]
+    const TEST_FOREGROUND_COLOR_B: Color = Color::Blue;
+    #[cfg(not(feature = "colors"))]
+    const TEST_FOREGROUND_COLOR_B: Color = Color::Gray40;
+
     #[test]
     fn test_clear() {
         let mut data = RawBuffer::new();
@@ -260,14 +280,14 @@ mod tests {
     #[test]
     fn test_background() {
         let mut data = RawBuffer::new();
-        Background(Color::Gray60, b'A')
+        Background(TEST_BACKGROUND_COLOR_A, b'A')
             .to_terminal(&mut data)
             .unwrap();
 
         assert_eq!(data.data(), [0x1B, 0x55, b'A', 0x1B, 0x50]);
 
         let mut data = RawBuffer::new();
-        Background(Color::Gray90, "bonjour")
+        Background(TEST_BACKGROUND_COLOR_B, "bonjour")
             .to_terminal(&mut data)
             .unwrap();
 
@@ -280,13 +300,13 @@ mod tests {
     #[test]
     fn test_foreground() {
         let mut data = RawBuffer::new();
-        Foreground(Color::Gray70, b'A')
+        Foreground(TEST_FOREGROUND_COLOR_A, b'A')
             .to_terminal(&mut data)
             .unwrap();
         assert_eq!(data.data(), [0x1B, 0x42, b'A', 0x1B, 0x47]);
 
         let mut data = RawBuffer::new();
-        Foreground(Color::Gray40, "bonjour")
+        Foreground(TEST_FOREGROUND_COLOR_B, "bonjour")
             .to_terminal(&mut data)
             .unwrap();
         assert_eq!(

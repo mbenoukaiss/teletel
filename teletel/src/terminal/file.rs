@@ -1,9 +1,9 @@
 use std::fs::{File, OpenOptions};
 use std::io::{Result as IoResult, Write};
-use std::path::{Path};
-use teletel_protocol::parser::{DisplayComponent, Parser};
 use crate::Error;
 use crate::terminal::{Context, Contextualized, ToTerminal, WriteableTerminal};
+use std::path::Path;
+use teletel_protocol::parser::{DisplayComponent, Parser};
 
 pub struct FileReceiver {
     file: File,
@@ -41,7 +41,7 @@ impl WriteableTerminal for FileReceiver {
     fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
         for i in 0..buf.len() {
             self.parser.consume(buf[i])?;
-            self.file.write_all(&buf[i..i+1])?;
+            self.file.write_all(&buf[i..i + 1])?;
         }
 
         Ok(())
@@ -64,9 +64,9 @@ mod tests {
         let path = format!("{}/test_file.vdt", env::temp_dir().to_str().unwrap());
         let mut file_receiver = FileReceiver::new(&path).unwrap();
 
-        file_receiver.write(&[b'a']).unwrap();
-        file_receiver.write(&[b'b', b'c']).unwrap();
-        file_receiver.write(&[b'd', b'e', b'f']).unwrap();
+        file_receiver.write(b"a").unwrap();
+        file_receiver.write(b"bc").unwrap();
+        file_receiver.write(b"def").unwrap();
         file_receiver.flush().unwrap();
 
         let mut file = File::open(&path).unwrap();
