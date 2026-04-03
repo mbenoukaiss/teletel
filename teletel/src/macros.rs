@@ -51,7 +51,7 @@ macro_rules! assert_times_out {
             Ok(_) => {
                 handle.join().expect("Thread panicked");
                 panic!("Thread did not time out");
-            },
+            }
             Err(_) => (),
         }
     };
@@ -63,30 +63,30 @@ mod tests {
 
     #[test]
     pub fn test_empty_and_full() {
-        assert_eq!(sg!(00/00/00), 0x20);
-        assert_eq!(sg!(11/11/11), 0x5F);
+        assert_eq!(sg!(000000), 0x20);
+        assert_eq!(sg!(111111), 0x5F);
     }
 
     #[test]
     pub fn test_works_with_spaces() {
-        assert_eq!(sg!(00      / 00 /   00     ), 0x20);
-        assert_eq!(sg!(11 /     11 / 11), 0x5F);
+        assert_eq!(sg!(00 / 00 / 00), 0x20);
+        assert_eq!(sg!(11 / 11 / 11), 0x5F);
     }
 
     #[test]
     pub fn test_semi_graphic_below_0x40() {
-        assert_eq!(sg!(10/00/00), 0x21);
-        assert_eq!(sg!(11/10/00), 0x27);
-        assert_eq!(sg!(01/01/10), 0x3A);
-        assert_eq!(sg!(01/11/10), 0x3E);
+        assert_eq!(sg!(100000), 0x21);
+        assert_eq!(sg!(111000), 0x27);
+        assert_eq!(sg!(010110), 0x3A);
+        assert_eq!(sg!(011110), 0x3E);
     }
 
     #[test]
     pub fn test_semi_graphic_above_0x40() {
-        assert_eq!(sg!(00/00/01), 0x60);
-        assert_eq!(sg!(10/00/01), 0x61);
-        assert_eq!(sg!(11/10/01), 0x67);
-        assert_eq!(sg!(01/01/11), 0x7A);
-        assert_eq!(sg!(01/11/11), 0x7E);
+        assert_eq!(sg!(000001), 0x60);
+        assert_eq!(sg!(100001), 0x61);
+        assert_eq!(sg!(111001), 0x67);
+        assert_eq!(sg!(010111), 0x7A);
+        assert_eq!(sg!(011111), 0x7E);
     }
 }

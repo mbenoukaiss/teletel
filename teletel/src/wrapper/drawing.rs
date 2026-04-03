@@ -1,6 +1,6 @@
-use crate::Error;
 use crate::functions::{Direction, MoveCursor, Repeat, SemiGraphic};
 use crate::terminal::{ToTerminal, WriteableTerminal};
+use crate::Error;
 use teletel_protocol::codes::{SI, SO};
 
 pub struct HLine(pub u8, pub u8);
@@ -19,15 +19,15 @@ impl ToTerminal for HLine {
         let mut character = 0x00;
 
         if self.1 & HLine::TOP != 0 {
-            character |= sg!(11/00/00);
+            character |= sg!(110000);
         }
 
         if self.1 & HLine::MID != 0 {
-            character |= sg!(00/11/00);
+            character |= sg!(001100);
         }
 
         if self.1 & HLine::BOT != 0 {
-            character |= sg!(00/00/11);
+            character |= sg!(000011);
         }
 
         SemiGraphic(Repeat(character, self.0)).to_terminal(term)
@@ -49,11 +49,11 @@ impl ToTerminal for VLine {
         let mut character = 0x00;
 
         if self.1 & VLine::LEFT != 0 {
-            character |= sg!(10/10/10);
+            character |= sg!(101010);
         }
 
         if self.1 & VLine::RIGHT != 0 {
-            character |= sg!(01/01/01);
+            character |= sg!(010101);
         }
 
         SO.to_terminal(term)?;
@@ -115,7 +115,7 @@ impl ToTerminal for RectangleOutline {
         }
 
         SI.to_terminal(term)?;
-        
+
         Ok(())
     }
 }
@@ -135,36 +135,36 @@ impl RectangleOutlineCharacterSet {
     pub fn new(settings: u8) -> RectangleOutlineCharacterSet {
         match settings {
             RectangleOutline::FULL => RectangleOutlineCharacterSet {
-                top_left_corner: sg!(11/11/11),
-                top_right_corner: sg!(11/11/11),
-                bottom_left_corner: sg!(11/11/11),
-                bottom_right_corner: sg!(11/11/11),
-                top_line: sg!(11/11/11),
-                bottom_line: sg!(11/11/11),
-                left_line: sg!(11/11/11),
-                right_line: sg!(11/11/11),
+                top_left_corner: sg!(111111),
+                top_right_corner: sg!(111111),
+                bottom_left_corner: sg!(111111),
+                bottom_right_corner: sg!(111111),
+                top_line: sg!(111111),
+                bottom_line: sg!(111111),
+                left_line: sg!(111111),
+                right_line: sg!(111111),
             },
             RectangleOutline::OUT => RectangleOutlineCharacterSet {
-                top_left_corner: sg!(11/10/10),
-                top_right_corner: sg!(11/01/01),
-                bottom_left_corner: sg!(10/10/11),
-                bottom_right_corner: sg!(01/01/11),
-                top_line: sg!(11/00/00),
-                bottom_line: sg!(00/00/11),
-                left_line: sg!(10/10/10),
-                right_line: sg!(01/01/01),
+                top_left_corner: sg!(111010),
+                top_right_corner: sg!(110101),
+                bottom_left_corner: sg!(101011),
+                bottom_right_corner: sg!(010111),
+                top_line: sg!(110000),
+                bottom_line: sg!(000011),
+                left_line: sg!(101010),
+                right_line: sg!(010101),
             },
             RectangleOutline::IN => RectangleOutlineCharacterSet {
-                top_left_corner: sg!(00/00/01),
-                top_right_corner: sg!(00/00/10),
-                bottom_left_corner: sg!(01/00/00),
-                bottom_right_corner: sg!(10/00/00),
-                top_line: sg!(00/00/11),
-                bottom_line: sg!(11/00/00),
-                left_line: sg!(01/01/01),
-                right_line: sg!(10/10/10),
+                top_left_corner: sg!(000001),
+                top_right_corner: sg!(000010),
+                bottom_left_corner: sg!(010000),
+                bottom_right_corner: sg!(100000),
+                top_line: sg!(000011),
+                bottom_line: sg!(110000),
+                left_line: sg!(010101),
+                right_line: sg!(101010),
             },
-            invalid => panic!("Invalid rectangle settings: {}", invalid)
+            invalid => panic!("Invalid rectangle settings: {}", invalid),
         }
     }
 }
@@ -177,12 +177,12 @@ impl ToTerminal for FilledRectangle {
         assert!(self.1 <= 23);
 
         SO.to_terminal(term)?;
-        Repeat(sg!(11/11/11), self.0).to_terminal(term)?;
+        Repeat(sg!(111111), self.0).to_terminal(term)?;
 
         for _ in 0..self.1 - 2 {
             MoveCursor(Direction::Down, 1).to_terminal(term)?;
             MoveCursor(Direction::Left, self.0).to_terminal(term)?;
-            Repeat(sg!(11/11/11), self.0).to_terminal(term)?;
+            Repeat(sg!(111111), self.0).to_terminal(term)?;
         }
 
         SI.to_terminal(term)?;

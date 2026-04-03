@@ -1,6 +1,6 @@
+use crate::codes::*;
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult, Write};
 use std::mem;
-use crate::codes::*;
 
 macro_rules! err {
     ($($arg:tt)*) => {
@@ -30,9 +30,7 @@ pub struct Error {
 
 impl Error {
     fn new<S: Into<String>>(msg: S) -> Error {
-        Error {
-            msg: msg.into(),
-        }
+        Error { msg: msg.into() }
     }
 }
 
@@ -86,7 +84,11 @@ impl Parsable for CharacterSet {
     }
 
     fn consume(&mut self, _ctx: &Context, byte: u8) -> Result<Self, Error> {
-        err!("Character set {:?} does not support more bytes ({:#04X})", self, byte);
+        err!(
+            "Character set {:?} does not support more bytes ({:#04X})",
+            self,
+            byte
+        );
     }
 
     fn is_complete(&self) -> bool {
@@ -112,7 +114,11 @@ impl Parsable for SimpleCharacter {
     }
 
     fn consume(&mut self, _ctx: &Context, byte: u8) -> Result<Self, Error> {
-        err!("Simple character {:?} does not support more bytes ({:#04X})", self, byte);
+        err!(
+            "Simple character {:?} does not support more bytes ({:#04X})",
+            self,
+            byte
+        );
     }
 
     fn is_complete(&self) -> bool {
@@ -152,7 +158,11 @@ impl Parsable for SemiGraphicCharacter {
     }
 
     fn consume(&mut self, _ctx: &Context, byte: u8) -> Result<Self, Error> {
-        err!("Semi-graphic character {:?} does not support more bytes ({:#04X})", self, byte);
+        err!(
+            "Semi-graphic character {:?} does not support more bytes ({:#04X})",
+            self,
+            byte
+        );
     }
 
     fn is_complete(&self) -> bool {
@@ -221,7 +231,9 @@ impl Parsable for SpecialCharacter {
                 CEDILLA => SpecialCharacter::Cedilla(None),
                 LOWER_OE => SpecialCharacter::LowerOE,
                 UPPER_OE => SpecialCharacter::UpperOE,
-                ESZETT if ctx.display_component == DisplayComponent::VGP5 => SpecialCharacter::Eszett,
+                ESZETT if ctx.display_component == DisplayComponent::VGP5 => {
+                    SpecialCharacter::Eszett
+                }
                 POUND => SpecialCharacter::Pound,
                 DOLLAR => SpecialCharacter::Dollar,
                 NUMBER_SIGN => SpecialCharacter::NumberSign,
@@ -229,7 +241,9 @@ impl Parsable for SpecialCharacter {
                 ARROW_UP => SpecialCharacter::ArrowUp,
                 ARROW_RIGHT => SpecialCharacter::ArrowRight,
                 ARROW_DOWN => SpecialCharacter::ArrowDown,
-                PARAGRAPH if ctx.display_component == DisplayComponent::VGP5 => SpecialCharacter::Paragraph,
+                PARAGRAPH if ctx.display_component == DisplayComponent::VGP5 => {
+                    SpecialCharacter::Paragraph
+                }
                 DEGREE => SpecialCharacter::Degree,
                 PLUS_OR_MINUS => SpecialCharacter::PlusOrMinus,
                 OBELUS => SpecialCharacter::Obelus,
@@ -252,14 +266,20 @@ impl Parsable for SpecialCharacter {
             },
             SpecialCharacter::Diaeresis(None) => match byte {
                 b'e' | b'i' => SpecialCharacter::Diaeresis(Some(byte)),
-                b'a' | b'o' | b'u' if ctx.display_component == DisplayComponent::VGP5 => SpecialCharacter::Diaeresis(Some(byte)),
+                b'a' | b'o' | b'u' if ctx.display_component == DisplayComponent::VGP5 => {
+                    SpecialCharacter::Diaeresis(Some(byte))
+                }
                 _ => err!("Invalid character for diaeresis {:#04X}", byte),
             },
             SpecialCharacter::Cedilla(None) => match byte {
                 b'c' => SpecialCharacter::Cedilla(Some(byte)),
                 _ => err!("Invalid character for cedilla {:#04X}", byte),
             },
-            _ => err!("Escaped sequence {:?} does not support more bytes ({:#04X})", self, byte),
+            _ => err!(
+                "Escaped sequence {:?} does not support more bytes ({:#04X})",
+                self,
+                byte
+            ),
         };
 
         Ok(result)
@@ -268,12 +288,12 @@ impl Parsable for SpecialCharacter {
     fn is_complete(&self) -> bool {
         !matches!(
             self,
-            SpecialCharacter::Incomplete |
-            SpecialCharacter::Grave(None) |
-            SpecialCharacter::Acute(None) |
-            SpecialCharacter::Circumflex(None)|
-            SpecialCharacter::Diaeresis(None)|
-            SpecialCharacter::Cedilla(None)
+            SpecialCharacter::Incomplete
+                | SpecialCharacter::Grave(None)
+                | SpecialCharacter::Acute(None)
+                | SpecialCharacter::Circumflex(None)
+                | SpecialCharacter::Diaeresis(None)
+                | SpecialCharacter::Cedilla(None)
         )
     }
 }
@@ -356,7 +376,7 @@ impl Parsable for Protocol {
             PRO1 => Protocol::Pro1,
             PRO2 => Protocol::Pro2,
             PRO3 => Protocol::Pro3,
-            _ => err!("Invalid protocol sequence starting with {:#04X}", byte)
+            _ => err!("Invalid protocol sequence starting with {:#04X}", byte),
         };
 
         Ok(result)
@@ -371,40 +391,71 @@ impl Parsable for Protocol {
             Protocol::Pro1 => match byte {
                 RESET => Protocol::Reset,
                 REQ_SPEED => Protocol::RequestSpeed,
-                _ => err!("Unsupported or invalid PRO1 sequence starting with {:#04X}", byte)
+                _ => err!(
+                    "Unsupported or invalid PRO1 sequence starting with {:#04X}",
+                    byte
+                ),
             },
             Protocol::Pro2 => match byte {
                 PROG => Protocol::SetSpeed(None),
                 START => Protocol::Toggle2(true),
                 STOP => Protocol::Toggle2(false),
-                _ => err!("Unsupported or invalid PRO2 sequence starting with {:#04X}", byte)
+                _ => err!(
+                    "Unsupported or invalid PRO2 sequence starting with {:#04X}",
+                    byte
+                ),
             },
             Protocol::Pro3 => match byte {
                 START => Protocol::Toggle3(true),
                 STOP => Protocol::Toggle3(false),
-                _ => err!("Unsupported or invalid PRO3 sequence starting with {:#04X}", byte)
+                _ => err!(
+                    "Unsupported or invalid PRO3 sequence starting with {:#04X}",
+                    byte
+                ),
             },
             Protocol::SetSpeed(None) => Protocol::SetSpeed(Some(byte)),
             Protocol::Toggle2(value) => match byte {
                 SCROLL => Protocol::Scroll(*value),
-                _ => err!("Unsupported or invalid PRO2 start/stop sequence starting with {:#04X}", byte)
+                _ => err!(
+                    "Unsupported or invalid PRO2 start/stop sequence starting with {:#04X}",
+                    byte
+                ),
             },
             Protocol::Toggle3(value) => match byte {
                 SCREEN => Protocol::ToggleScreen(*value),
-                _ => err!("Unsupported or invalid PRO3 start/stop sequence starting with {:#04X}", byte)
+                _ => err!(
+                    "Unsupported or invalid PRO3 start/stop sequence starting with {:#04X}",
+                    byte
+                ),
             },
             Protocol::ToggleScreen(value) => match byte {
                 0x41 => Protocol::Sleep(*value),
-                _ => err!("Unsupported or invalid protocol toggle screen sequence starting with {:#04X}", byte)
-            }
-            _ => err!("Protocol sequence {:?} does not support additional bytes ({:#04X})", self, byte),
+                _ => err!(
+                    "Unsupported or invalid protocol toggle screen sequence starting with {:#04X}",
+                    byte
+                ),
+            },
+            _ => err!(
+                "Protocol sequence {:?} does not support additional bytes ({:#04X})",
+                self,
+                byte
+            ),
         };
 
         Ok(result)
     }
 
     fn is_complete(&self) -> bool {
-        !matches!(self, Protocol::Pro1 | Protocol::Pro2 | Protocol::Pro3 | Protocol::SetSpeed(None) | Protocol::Toggle2(_) | Protocol::Toggle3(_) | Protocol::ToggleScreen(_))
+        !matches!(
+            self,
+            Protocol::Pro1
+                | Protocol::Pro2
+                | Protocol::Pro3
+                | Protocol::SetSpeed(None)
+                | Protocol::Toggle2(_)
+                | Protocol::Toggle3(_)
+                | Protocol::ToggleScreen(_)
+        )
     }
 }
 
@@ -436,7 +487,10 @@ enum Csi {
 impl Parsable for Csi {
     fn new(ctx: &Context, byte: u8) -> Result<Self, Error> {
         if !Self::supports(ctx, byte) {
-            err!("Unsupported or invalid CSI sequence starting with {:#04X}", byte);
+            err!(
+                "Unsupported or invalid CSI sequence starting with {:#04X}",
+                byte
+            );
         }
 
         if ctx.cursor_y == 0 {
@@ -457,8 +511,11 @@ impl Parsable for Csi {
                 0x30..=0x39 => Csi::Quantified(byte - 0x30),
                 0x4A => Csi::ClearFromCursorToEos,
                 0x4B => Csi::ClearFromCursorToEol,
-                _ => err!("Unsupported or invalid CSI sequence starting with {:#04X}", byte),
-            }
+                _ => err!(
+                    "Unsupported or invalid CSI sequence starting with {:#04X}",
+                    byte
+                ),
+            },
             Csi::Quantified(value) => match byte {
                 0x30..=0x39 => Csi::Quantified(*value * 10 + (byte - 0x30)),
                 0x3B => Csi::IncompleteSetCursor(None, Some(*value)),
@@ -478,28 +535,45 @@ impl Parsable for Csi {
                 0x6C if *value == 0x04 => Csi::EndInsert,
                 0x4D => Csi::EraseRowsFromCursor(*value),
                 0x4C => Csi::InsertRowsFromCursor(*value),
-                _ => err!("Unsupported or invalid byte {:#04X} for quantified CSI sequence", byte),
-            }
-            Csi::IncompleteSetCursor(x, Some(y)) if (0x30..=0x39).contains(&byte) => Csi::IncompleteSetCursor(
-                Some(x.unwrap_or(0) * 10 + (byte - 0x30)),
-                Some(*y)
-            ),
-            Csi::IncompleteSetCursor(Some(x), Some(y)) if byte == 0x48 => if (1..=ctx.screen_width).contains(x) && (1..=ctx.screen_height).contains(y) {
-                Csi::SetCursor(*x, *y)
-            } else {
-                err!("Invalid cursor position ({}, {}) for screen size ({}, {})", x, y, ctx.screen_width, ctx.screen_height)
+                _ => err!(
+                    "Unsupported or invalid byte {:#04X} for quantified CSI sequence",
+                    byte
+                ),
             },
+            Csi::IncompleteSetCursor(x, Some(y)) if (0x30..=0x39).contains(&byte) => {
+                Csi::IncompleteSetCursor(Some(x.unwrap_or(0) * 10 + (byte - 0x30)), Some(*y))
+            }
+            Csi::IncompleteSetCursor(Some(x), Some(y)) if byte == 0x48 => {
+                if (1..=ctx.screen_width).contains(x) && (1..=ctx.screen_height).contains(y) {
+                    Csi::SetCursor(*x, *y)
+                } else {
+                    err!(
+                        "Invalid cursor position ({}, {}) for screen size ({}, {})",
+                        x,
+                        y,
+                        ctx.screen_width,
+                        ctx.screen_height
+                    )
+                }
+            }
 
             //TODO: implement other CSI sequences
             //TODO: implement end-of-page 95 recommendations but not here
-            _ => err!("Unsupported or invalid byte {:#04X} for sequence {:?}", byte, self),
+            _ => err!(
+                "Unsupported or invalid byte {:#04X} for sequence {:?}",
+                byte,
+                self
+            ),
         };
 
         Ok(result)
     }
 
     fn is_complete(&self) -> bool {
-        !matches!(self, Csi::Incomplete | Csi::Quantified(_) | Csi::IncompleteSetCursor(_, _))
+        !matches!(
+            self,
+            Csi::Incomplete | Csi::Quantified(_) | Csi::IncompleteSetCursor(_, _)
+        )
     }
 }
 
@@ -529,7 +603,10 @@ enum EscapedSequence {
 impl Parsable for EscapedSequence {
     fn new(ctx: &Context, byte: u8) -> Result<Self, Error> {
         if !Self::supports(ctx, byte) {
-            err!("Unsupported or invalid escaped sequence starting with {:#04X}", byte);
+            err!(
+                "Unsupported or invalid escaped sequence starting with {:#04X}",
+                byte
+            );
         }
 
         Ok(EscapedSequence::Incomplete)
@@ -564,17 +641,28 @@ impl Parsable for EscapedSequence {
                 0x23 => EscapedSequence::IncompleteScreenMasking(1),
                 _ => err!("Invalid escaped sequence starting with {:#04X}", byte),
             },
-            EscapedSequence::IncompleteStopIgnore if byte == 0x3F  => EscapedSequence::Ignore(Some(false)),
+            EscapedSequence::IncompleteStopIgnore if byte == 0x3F => {
+                EscapedSequence::Ignore(Some(false))
+            }
             EscapedSequence::Ignore(None) => EscapedSequence::Ignore(Some(byte != 0x40)),
             EscapedSequence::Csi(csi) => EscapedSequence::Csi(csi.consume(ctx, byte)?),
             EscapedSequence::Protocol(pro) => EscapedSequence::Protocol(pro.consume(ctx, byte)?),
-            EscapedSequence::IncompleteScreenMasking(1) if byte == 0x20 => EscapedSequence::IncompleteScreenMasking(2),
+            EscapedSequence::IncompleteScreenMasking(1) if byte == 0x20 => {
+                EscapedSequence::IncompleteScreenMasking(2)
+            }
             EscapedSequence::IncompleteScreenMasking(2) => match byte {
                 MASK => EscapedSequence::ScreenMasking(true),
                 UNMASK => EscapedSequence::ScreenMasking(false),
-                _ => err!("Invalid screen masking byte ({:#04X}), expected 0x58 or 0x5F", byte),
+                _ => err!(
+                    "Invalid screen masking byte ({:#04X}), expected 0x58 or 0x5F",
+                    byte
+                ),
             },
-            _ => err!("Escaped sequence {:?} does not support additional bytes ({:#04X})", self, byte),
+            _ => err!(
+                "Escaped sequence {:?} does not support additional bytes ({:#04X})",
+                self,
+                byte
+            ),
         };
 
         Ok(result)
@@ -666,22 +754,48 @@ impl Parsable for Sequence {
                 } else if byte == CURSOR_OFF {
                     Sequence::VisibleCursor(false)
                 } else {
-                    err!("Unsupported or invalid sequence starting with {:#04X}", byte)
+                    err!(
+                        "Unsupported or invalid sequence starting with {:#04X}",
+                        byte
+                    )
                 }
             }
-            Sequence::Escaped(escaped_sequence) => Sequence::Escaped(escaped_sequence.consume(ctx, byte)?),
-            Sequence::SetCharacterSet(character_set) => Sequence::SetCharacterSet(character_set.consume(ctx, byte)?),
-            Sequence::SpecialCharacter(special_character) => Sequence::SpecialCharacter(special_character.consume(ctx, byte)?),
-            Sequence::SemiGraphicCharacter(semi_graphic_character) => Sequence::SemiGraphicCharacter(semi_graphic_character.consume(ctx, byte)?),
-            Sequence::SimpleCharacter(simple_character) => Sequence::SimpleCharacter(simple_character.consume(ctx, byte)?),
-            Sequence::SubSection(None, None) if (0x40..=0x7F).contains(&byte) => Sequence::SubSection(Some(byte - 0x40), None),
-            Sequence::SubSection(Some(x), None) if (0x40..=0x7F).contains(&byte) => Sequence::SubSection(Some(*x), Some(byte - 0x40)),
-            Sequence::Repeat(None) => if (0x40..=0x7F).contains(&byte) {
-                Sequence::Repeat(Some(byte - 0x40))
-            } else {
-                err!("Repeat sequence expects a number between 0x40 and 0x7F, got {:#04X}", byte)
-            },
-            _ => err!("Sequence {:?} does not support additional bytes ({:#04X})", self, byte),
+            Sequence::Escaped(escaped_sequence) => {
+                Sequence::Escaped(escaped_sequence.consume(ctx, byte)?)
+            }
+            Sequence::SetCharacterSet(character_set) => {
+                Sequence::SetCharacterSet(character_set.consume(ctx, byte)?)
+            }
+            Sequence::SpecialCharacter(special_character) => {
+                Sequence::SpecialCharacter(special_character.consume(ctx, byte)?)
+            }
+            Sequence::SemiGraphicCharacter(semi_graphic_character) => {
+                Sequence::SemiGraphicCharacter(semi_graphic_character.consume(ctx, byte)?)
+            }
+            Sequence::SimpleCharacter(simple_character) => {
+                Sequence::SimpleCharacter(simple_character.consume(ctx, byte)?)
+            }
+            Sequence::SubSection(None, None) if (0x40..=0x7F).contains(&byte) => {
+                Sequence::SubSection(Some(byte - 0x40), None)
+            }
+            Sequence::SubSection(Some(x), None) if (0x40..=0x7F).contains(&byte) => {
+                Sequence::SubSection(Some(*x), Some(byte - 0x40))
+            }
+            Sequence::Repeat(None) => {
+                if (0x40..=0x7F).contains(&byte) {
+                    Sequence::Repeat(Some(byte - 0x40))
+                } else {
+                    err!(
+                        "Repeat sequence expects a number between 0x40 and 0x7F, got {:#04X}",
+                        byte
+                    )
+                }
+            }
+            _ => err!(
+                "Sequence {:?} does not support additional bytes ({:#04X})",
+                self,
+                byte
+            ),
         };
 
         Ok(result)
@@ -693,7 +807,9 @@ impl Parsable for Sequence {
             Sequence::Escaped(escaped_sequence) => escaped_sequence.is_complete(),
             Sequence::SetCharacterSet(character_set) => character_set.is_complete(),
             Sequence::SpecialCharacter(special_character) => special_character.is_complete(),
-            Sequence::SemiGraphicCharacter(semi_graphic_character) => semi_graphic_character.is_complete(),
+            Sequence::SemiGraphicCharacter(semi_graphic_character) => {
+                semi_graphic_character.is_complete()
+            }
             Sequence::SimpleCharacter(simple_character) => simple_character.is_complete(),
             Sequence::SubSection(Some(_), Some(_)) => true,
             Sequence::SubSection(_, _) => false,
@@ -707,7 +823,7 @@ impl Parsable for Sequence {
 pub struct PendingAttributes {
     apply_on_delimiter: bool,
     background: Option<u8>,
-    underline: Option<bool>,  //+ caractère disjoint en mode semi-graphique
+    underline: Option<bool>, //+ caractère disjoint en mode semi-graphique
     mask: Option<bool>,
 }
 
@@ -745,7 +861,7 @@ pub struct Attributes {
     pub character_set: CharacterSet,
     pub background: u8,
     pub foreground: u8,
-    pub underline: bool,  //+ caractère disjoint en mode semi-graphique
+    pub underline: bool, //+ caractère disjoint en mode semi-graphique
     pub blinking: bool,
     pub double_height: bool,
     pub double_width: bool,
@@ -825,7 +941,11 @@ impl Attributes {
 
 impl Debug for Attributes {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "Attr({:?}, Background({}), Foreground({})", self.character_set, self.background, self.foreground)?;
+        write!(
+            f,
+            "Attr({:?}, Background({}), Foreground({})",
+            self.character_set, self.background, self.foreground
+        )?;
 
         if self.underline {
             f.write_str(", underline")?;
@@ -880,6 +1000,29 @@ impl Cell {
         self.set_delimiter(false);
         self.set_attributes(Attributes::default());
     }
+
+    fn delimiter(background: u8) -> Self {
+        let mut cell = Cell::default();
+        cell.set_content(' ');
+        cell.set_delimiter(true);
+        cell.set_attributes(Attributes {
+            character_set: CharacterSet::G1,
+            background,
+            foreground: BLACK,
+            ..Attributes::default()
+        });
+
+        cell
+    }
+
+    fn space(attributes: Attributes, is_delimiter: bool) -> Self {
+        let mut cell = Cell::default();
+        cell.set_content(' ');
+        cell.set_delimiter(is_delimiter);
+        cell.set_attributes(attributes);
+
+        cell
+    }
 }
 
 impl Debug for Cell {
@@ -887,7 +1030,11 @@ impl Debug for Cell {
         let name = if self.is_delimiter { "Delim" } else { "Cell" };
 
         if self.attributes.character_set == CharacterSet::G1 {
-            write!(f, "{}({:#04X}, {:?})", name, self.content as u8, self.attributes)
+            write!(
+                f,
+                "{}({:#04X}, {:?})",
+                name, self.content as u8, self.attributes
+            )
         } else {
             write!(f, "{}('{}', {:?})", name, self.content, self.attributes)
         }
@@ -909,20 +1056,36 @@ impl Grid {
         Self {
             width,
             height,
-            data: vec![Cell::default(); width * height],
+            data: vec![Cell::delimiter(BLACK); width * height],
         }
     }
 
     pub fn cell(&self, x: u8, y: u8) -> &Cell {
-        assert!(x >= 1 && x <= self.width as u8, "Invalid x coordinate {}", x);
-        assert!(y >= 1 && y <= self.height as u8, "Invalid y coordinate {}", y);
+        assert!(
+            x >= 1 && x <= self.width as u8,
+            "Invalid x coordinate {}",
+            x
+        );
+        assert!(
+            y >= 1 && y <= self.height as u8,
+            "Invalid y coordinate {}",
+            y
+        );
 
         &self.data[(y as usize - 1) * self.width + x as usize - 1]
     }
 
     pub fn previous_cell(&self, x: u8, y: u8) -> Option<&Cell> {
-        assert!(x >= 1 && x <= self.width as u8, "Invalid x coordinate {}", x);
-        assert!(y >= 1 && y <= self.height as u8, "Invalid y coordinate {}", y);
+        assert!(
+            x >= 1 && x <= self.width as u8,
+            "Invalid x coordinate {}",
+            x
+        );
+        assert!(
+            y >= 1 && y <= self.height as u8,
+            "Invalid y coordinate {}",
+            y
+        );
 
         let offset = (y as usize - 1) * self.width + x as usize - 1;
         if offset == 0 {
@@ -937,18 +1100,29 @@ impl Grid {
             return None;
         }
 
-        self.data.get((y as usize - 1) * self.width + x as usize - 1)
+        self.data
+            .get((y as usize - 1) * self.width + x as usize - 1)
     }
 
     fn cell_mut(&mut self, x: u8, y: u8) -> &mut Cell {
-        assert!(x >= 1 && x <= self.width as u8, "Invalid x coordinate {}", x);
-        assert!(y >= 1 && y <= self.height as u8, "Invalid y coordinate {}", y);
+        assert!(
+            x >= 1 && x <= self.width as u8,
+            "Invalid x coordinate {}",
+            x
+        );
+        assert!(
+            y >= 1 && y <= self.height as u8,
+            "Invalid y coordinate {}",
+            y
+        );
 
         &mut self.data[(y as usize - 1) * self.width + x as usize - 1]
     }
 
     fn reset(&mut self) {
-        self.data.iter_mut().for_each(Cell::reset);
+        self.data
+            .iter_mut()
+            .for_each(|cell| *cell = Cell::delimiter(BLACK));
     }
 
     fn scroll(&mut self, count: i8) {
@@ -960,10 +1134,15 @@ impl Grid {
 
         if count > 0 {
             self.data.splice(0..cells_to_scroll, vec![]);
-            self.data.splice(self.data.len().., vec![Cell::default(); cells_to_scroll]);
+            self.data.splice(
+                self.data.len()..,
+                vec![Cell::delimiter(BLACK); cells_to_scroll],
+            );
         } else {
-            self.data.splice((self.data.len() - cells_to_scroll).., vec![]);
-            self.data.splice(0..0, vec![Cell::default(); cells_to_scroll]);
+            self.data
+                .splice((self.data.len() - cells_to_scroll).., vec![]);
+            self.data
+                .splice(0..0, vec![Cell::delimiter(BLACK); cells_to_scroll]);
         }
     }
 
@@ -987,23 +1166,53 @@ impl Grid {
         self.clear_range((x, y), (self.width as u8, y));
     }
 
-    fn insert_after(&mut self, count: u8, x: u8, y: u8) {
-        let start = (y as usize - 1) * self.width + x as usize - 1;
-        self.data.splice(start..start, vec![Cell::default(); count as usize]);
-        self.data.truncate(self.width * self.height);
+    fn insert_after(&mut self, count: u8, x: u8, y: u8, attributes: Attributes) {
+        let row_start = (y as usize - 1) * self.width;
+        let row_end = row_start + self.width;
+        let max_insert = self.width as u8 - (x - 1);
+        let count = count.min(max_insert);
+
+        if count == 0 {
+            return;
+        }
+
+        let mut row = self.data[row_start..row_end].to_vec();
+        let insert_at = x as usize - 1;
+        row.splice(
+            insert_at..insert_at,
+            vec![Cell::space(attributes, false); count as usize],
+        );
+        row.truncate(self.width);
+
+        self.data.splice(row_start..row_end, row);
     }
 
-    fn delete_after(&mut self, count: u8, x: u8, y: u8) {
-        let start = (y as usize - 1) * self.width + x as usize - 1;
-        let end = start + count as usize;
-        self.data.splice(start..end, vec![]);
-        self.data.resize(self.width * self.height, Cell::default());
+    fn delete_after(&mut self, count: u8, x: u8, y: u8, attributes: Attributes) {
+        let row_start = (y as usize - 1) * self.width;
+        let row_end = row_start + self.width;
+        let max_delete = self.width as u8 - (x - 1);
+        let count = count.min(max_delete);
+
+        if count == 0 {
+            return;
+        }
+
+        let mut row = self.data[row_start..row_end].to_vec();
+        let delete_from = x as usize - 1;
+        row.drain(delete_from..delete_from + count as usize);
+        row.extend(std::iter::repeat(Cell::space(attributes, false)).take(count as usize));
+        row.truncate(self.width);
+
+        self.data.splice(row_start..row_end, row);
     }
 
     fn insert_rows_after(&mut self, count: u8, y: u8) {
         //don't -1 to y because we're inserting after the given row
         let start = (y as usize) * self.width;
-        self.data.splice(start..start, vec![Cell::default(); count as usize * self.width]);
+        self.data.splice(
+            start..start,
+            vec![Cell::delimiter(BLACK); count as usize * self.width],
+        );
         self.data.truncate(self.width * self.height);
     }
 
@@ -1012,12 +1221,13 @@ impl Grid {
         let start = (y as usize) * self.width;
         let end = start + count as usize * self.width;
         self.data.splice(start..end, vec![]);
-        self.data.resize(self.width * self.height, Cell::default());
+        self.data
+            .resize(self.width * self.height, Cell::delimiter(BLACK));
     }
 
     fn recalculate_row_attributes(&mut self, x: u8, y: u8) {
         let start = (y as usize - 1) * self.width + x as usize - 1;
-        let end = start + self.width - x as usize ;
+        let end = start + self.width - x as usize;
 
         let mut attributes = if let Some(previous) = self.cell_opt(x - 1, y) {
             previous.attributes
@@ -1042,14 +1252,18 @@ impl Grid {
 
     /// Clears all cells between the inclusive given coordinates
     fn clear_range(&mut self, (x1, y1): (u8, u8), (x2, y2): (u8, u8)) {
-        self.apply_range((x1, y1), (x2, y2), Cell::reset);
+        self.apply_range((x1, y1), (x2, y2), |cell| *cell = Cell::delimiter(BLACK));
     }
 
     fn apply_range(&mut self, (x1, y1): (u8, u8), (x2, y2): (u8, u8), f: impl Fn(&mut Cell)) {
         self.range_mut((x1, y1), (x2, y2)).for_each(f);
     }
 
-    fn range_mut(&mut self, (x1, y1): (u8, u8), (x2, y2): (u8, u8)) -> impl Iterator<Item = &mut Cell> {
+    fn range_mut(
+        &mut self,
+        (x1, y1): (u8, u8),
+        (x2, y2): (u8, u8),
+    ) -> impl Iterator<Item = &mut Cell> {
         let start = (y1 - 1) as usize * self.width + (x1 - 1) as usize;
         let end = (y2 - 1) as usize * self.width + (x2 - 1) as usize;
 
@@ -1099,14 +1313,21 @@ impl Context {
     }
 
     fn consume(&mut self, sequence: &Sequence) -> Result<(), Error> {
-        if self.ignore_sequences && !matches!(sequence, Sequence::Escaped(EscapedSequence::Ignore(Some(false)))) {
+        if self.ignore_sequences
+            && !matches!(
+                sequence,
+                Sequence::Escaped(EscapedSequence::Ignore(Some(false)))
+            )
+        {
             return Ok(());
         }
 
         match sequence {
             Sequence::Incomplete => {}
             Sequence::Escaped(esc) => match esc {
-                EscapedSequence::Background(color) => self.pending_attributes.set_background(*color),
+                EscapedSequence::Background(color) => {
+                    self.pending_attributes.set_background(*color)
+                }
                 EscapedSequence::Foreground(color) => self.attributes.foreground = *color,
                 EscapedSequence::Csi(csi) => match csi {
                     //these four sequences do not support wrapping and the cursor will just
@@ -1119,64 +1340,103 @@ impl Context {
 
                     Csi::SetCursor(x, y) => {
                         self.set_cursor(*x, *y, false);
-                    },
-                    Csi::InsertRowsFromCursor(count)  => self.grid.insert_rows_after(*count, self.cursor_y),
-                    Csi::EraseRowsFromCursor(count) => self.grid.delete_rows_after(*count, self.cursor_y),
+                    }
+                    Csi::InsertRowsFromCursor(count) => {
+                        self.grid.insert_rows_after(*count, self.cursor_y)
+                    }
+                    Csi::EraseRowsFromCursor(count) => {
+                        self.grid.delete_rows_after(*count, self.cursor_y)
+                    }
                     //todo: check if attributes and pending attributes are reset?
                     Csi::ClearRow => self.grid.clear_row(self.cursor_y),
-                    Csi::InsertSpacesFromCursorToEol => panic!("CAN not yet implemented"),
-                    Csi::ClearFromCursorToEos => self.grid.clear_after(self.cursor_x, self.cursor_y),
-                    Csi::ClearFromSosToCursor => self.grid.clear_before(self.cursor_x, self.cursor_y),
+                    Csi::InsertSpacesFromCursorToEol => self.fill_with_spaces_to_eol(),
+                    Csi::ClearFromCursorToEos => {
+                        self.grid.clear_after(self.cursor_x, self.cursor_y)
+                    }
+                    Csi::ClearFromSosToCursor => {
+                        self.grid.clear_before(self.cursor_x, self.cursor_y)
+                    }
                     Csi::ClearScreenKeepCursorPos => self.grid.reset(),
-                    Csi::ClearFromCursorToEol => self.grid.clear_in_row_after(self.cursor_x, self.cursor_y),
-                    Csi::ClearFromSolToCursor => self.grid.clear_in_row_before(self.cursor_x, self.cursor_y),
-                    Csi::ClearAfterCursor(count) => self.grid.delete_after(*count, self.cursor_x, self.cursor_y),
-                    Csi::InsertFromCursor(count) => self.grid.insert_after(*count, self.cursor_x, self.cursor_y),
+                    Csi::ClearFromCursorToEol => {
+                        self.grid.clear_in_row_after(self.cursor_x, self.cursor_y)
+                    }
+                    Csi::ClearFromSolToCursor => {
+                        self.grid.clear_in_row_before(self.cursor_x, self.cursor_y)
+                    }
+                    Csi::ClearAfterCursor(count) => {
+                        self.grid.delete_after(
+                            *count,
+                            self.cursor_x,
+                            self.cursor_y,
+                            self.attributes,
+                        );
+                        self.grid.recalculate_row_attributes(1, self.cursor_y);
+                    }
+                    Csi::InsertFromCursor(count) => {
+                        self.grid.insert_after(
+                            *count,
+                            self.cursor_x,
+                            self.cursor_y,
+                            self.attributes,
+                        );
+                        self.grid.recalculate_row_attributes(1, self.cursor_y);
+                    }
                     Csi::StartInsert => self.insert = true,
-                    Csi::EndInsert => self.insert = true,
+                    Csi::EndInsert => self.insert = false,
                     _ => panic!("Received incomplete CSI sequence {:?}", csi),
-                }
-                EscapedSequence::NormalSize | EscapedSequence::DoubleSize
-                | EscapedSequence::DoubleHeight | EscapedSequence::DoubleWidth
-                | EscapedSequence::Invert(_)
-                if self.attributes.character_set == CharacterSet::G1 => {
-                    panic!("Changing invert and character size while in G1 is not supported");
                 },
+                EscapedSequence::NormalSize
+                | EscapedSequence::DoubleSize
+                | EscapedSequence::DoubleHeight
+                | EscapedSequence::DoubleWidth
+                | EscapedSequence::Invert(_)
+                    if self.attributes.character_set == CharacterSet::G1 =>
+                {
+                    panic!("Changing invert and character size while in G1 is not supported");
+                }
                 EscapedSequence::Blink(blink) => self.attributes.blinking = *blink,
                 EscapedSequence::Invert(invert) => self.attributes.invert = *invert,
                 EscapedSequence::NormalSize => {
                     self.attributes.double_height = false;
                     self.attributes.double_width = false;
-                },
-                EscapedSequence::DoubleHeight | EscapedSequence::DoubleSize if self.cursor_y <= 1 => {
-                    panic!("Tried to set double height or double size while in row 0 or 1"); //p93
-                },
+                }
+                EscapedSequence::DoubleHeight | EscapedSequence::DoubleSize
+                    if self.cursor_y <= 1 =>
+                {
+                    panic!("Tried to set double height or double size while in row 0 or 1");
+                    //p93
+                }
                 EscapedSequence::DoubleHeight => self.attributes.double_height = true,
                 EscapedSequence::DoubleWidth => self.attributes.double_width = true,
                 EscapedSequence::DoubleSize => {
                     self.attributes.double_height = true;
                     self.attributes.double_width = true;
-                },
-                EscapedSequence::Underline(underline) => self.pending_attributes.set_underline(*underline),
+                }
+                EscapedSequence::Underline(underline) => {
+                    self.pending_attributes.set_underline(*underline)
+                }
                 EscapedSequence::Mask(mask) => self.pending_attributes.set_mask(*mask),
                 EscapedSequence::Ignore(Some(ignore)) => self.ignore_sequences = *ignore,
-                EscapedSequence::Protocol(pro) => match pro { //todo: impl missing sequences
+                EscapedSequence::Protocol(pro) => match pro {
+                    //todo: impl missing sequences
                     Protocol::Reset => *self = Self::new(self.display_component),
                     Protocol::RequestSpeed => {}
                     Protocol::SetSpeed(_) => {}
                     //todo: not actually parse this but the response
-                    Protocol::Scroll(scroll) => if *scroll {
-                        self.page_mode = PageMode::Scroll;
-                    } else {
-                        self.page_mode = PageMode::Page;
-                    },
+                    Protocol::Scroll(scroll) => {
+                        if *scroll {
+                            self.page_mode = PageMode::Scroll;
+                        } else {
+                            self.page_mode = PageMode::Page;
+                        }
+                    }
                     Protocol::Sleep(_) => {}
                     _ => panic!("Received incomplete protocol sequence {:?}", pro),
                 },
                 EscapedSequence::GetCursorPosition => {} //todo: handle
                 EscapedSequence::ScreenMasking(mask) => self.screen_mask = *mask,
                 _ => panic!("Received incomplete escaped sequence {:?}", esc),
-            }
+            },
             Sequence::SetCharacterSet(set) => {
                 self.attributes.character_set = *set;
                 self.attributes.underline = false; //p94 todo: on peut supprimer?
@@ -1188,7 +1448,7 @@ impl Context {
                     self.attributes.double_height = false;
                     self.attributes.double_width = false;
                 }
-            },
+            }
             Sequence::SpecialCharacter(character) => self.print(character.to_character()?),
             Sequence::SimpleCharacter(character) => self.print(character.to_character()?),
             Sequence::SemiGraphicCharacter(character) => self.print(character.0 as char),
@@ -1200,7 +1460,10 @@ impl Context {
             },
             //todo: check if we should reset attributes or not
             Sequence::CarriageReturn => self.cursor_x = 1,
-            Sequence::RecordSeparator => self.set_cursor(1, 1, false),
+            Sequence::RecordSeparator => {
+                self.set_cursor(1, 1, false);
+                self.reset_attributes();
+            }
             Sequence::ClearScreen => {
                 self.set_cursor(1, 1, false);
                 self.reset_screen();
@@ -1209,9 +1472,13 @@ impl Context {
                 //the only way to access row 0 documented p97
                 self.set_cursor(x.unwrap(), y.unwrap(), true);
                 self.reset_attributes();
-            },
+            }
             Sequence::Repeat(value) => {
-                if let Some(previous_char) = self.grid.previous_cell(self.cursor_x, self.cursor_y).map(|cell| cell.content) {
+                if let Some(previous_char) = self
+                    .grid
+                    .previous_cell(self.cursor_x, self.cursor_y)
+                    .map(|cell| cell.content)
+                {
                     if previous_char == '\0' {
                         panic!("Tried to repeat a character but no character was present");
                     }
@@ -1222,7 +1489,7 @@ impl Context {
                 } else {
                     panic!("Tried to repeat a character at the beginning of the screen");
                 }
-            },
+            }
             Sequence::VisibleCursor(value) => self.visible_cursor = *value,
             Sequence::Beep => {} //todo: handle beep idk how
         };
@@ -1231,11 +1498,7 @@ impl Context {
     }
 
     fn set_cursor(&mut self, x: u8, y: u8, allow_row_zero: bool) {
-        let minimum_y = if allow_row_zero {
-            0
-        } else {
-            1
-        };
+        let minimum_y = if allow_row_zero { 0 } else { 1 };
 
         if x > self.screen_width || x < 1 || y > self.screen_height || y < minimum_y {
             panic!("Tried to move cursor outside of screen ({}, {})", x, y);
@@ -1314,7 +1577,7 @@ impl Context {
             let scroll_amount = if new_y < 1 {
                 -new_y + 1
             } else if new_y > self.screen_height as i16 {
-               new_y - self.screen_height as i16
+                new_y - self.screen_height as i16
             } else {
                 0
             };
@@ -1322,21 +1585,45 @@ impl Context {
             self.grid.scroll(scroll_amount as i8);
             self.cursor_y = new_y.clamp(1, self.screen_height as i16) as u8;
         } else {
-            self.cursor_y = new_y.rem_euclid(self.screen_width as i16) as u8;
+            self.cursor_y = new_y.rem_euclid(self.screen_height as i16) as u8;
         }
 
         self.attributes.reset_zone_attributes();
     }
 
+    fn fill_with_spaces_to_eol(&mut self) {
+        let y = self.cursor_y;
+        let x = self.cursor_x;
+        let attributes = self.attributes;
+
+        for column in x..=self.screen_width {
+            let cell = self.grid.cell_mut(column, y);
+            *cell = Cell::space(attributes, false);
+        }
+    }
+
     fn print(&mut self, character: char) {
-        let is_delimiter = self.attributes.apply_pending(character, &mut self.pending_attributes);
+        if self.insert {
+            let width = if self.attributes.double_width { 2 } else { 1 };
+            self.grid
+                .insert_after(width, self.cursor_x, self.cursor_y, self.attributes);
+        }
+
+        let is_delimiter = self
+            .attributes
+            .apply_pending(character, &mut self.pending_attributes);
+
+        // if self.attributes.double_width && self.cursor_x == self.screen_width {
+        //     self.move_cursor_x(1, true);
+        // }
 
         let cell = self.grid.cell_mut(self.cursor_x, self.cursor_y);
         cell.set_content(character);
         cell.set_delimiter(is_delimiter);
         cell.set_attributes(self.attributes);
 
-        self.grid.recalculate_row_attributes(self.cursor_x, self.cursor_y);
+        self.grid
+            .recalculate_row_attributes(self.cursor_x, self.cursor_y);
 
         self.next(1);
     }
@@ -1434,22 +1721,30 @@ mod tests {
 
         assert_eq!(
             CharacterSet::new(&ctx, SI).unwrap().consume(&ctx, 0x00),
-            Err(Error::new("Character set G0 does not support more bytes (0x00)")),
+            Err(Error::new(
+                "Character set G0 does not support more bytes (0x00)"
+            )),
         );
 
         assert_eq!(
             CharacterSet::new(&ctx, SI).unwrap().consume(&ctx, 0x0E),
-            Err(Error::new("Character set G0 does not support more bytes (0x0E)")),
+            Err(Error::new(
+                "Character set G0 does not support more bytes (0x0E)"
+            )),
         );
 
         assert_eq!(
             CharacterSet::new(&ctx, SO).unwrap().consume(&ctx, 0x00),
-            Err(Error::new("Character set G1 does not support more bytes (0x00)")),
+            Err(Error::new(
+                "Character set G1 does not support more bytes (0x00)"
+            )),
         );
 
         assert_eq!(
             CharacterSet::new(&ctx, SO).unwrap().consume(&ctx, 0x0F),
-            Err(Error::new("Character set G1 does not support more bytes (0x0F)")),
+            Err(Error::new(
+                "Character set G1 does not support more bytes (0x0F)"
+            )),
         );
     }
 
@@ -1484,10 +1779,22 @@ mod tests {
         assert!(!SimpleCharacter::supports(&ctx, 0x20));
         assert!(!SimpleCharacter::supports(&ctx, 0x3F));
 
-        assert_err!(SimpleCharacter::new(&ctx, 0x20), "Invalid simple character 0x20");
-        assert_err!(SimpleCharacter::new(&ctx, 0x7F), "Invalid simple character 0x7F");
-        assert_err!(SimpleCharacter::new(&ctx, 0x4A), "Invalid simple character 0x4A");
-        assert_err!(SimpleCharacter::new(&ctx, 0x60), "Invalid simple character 0x60");
+        assert_err!(
+            SimpleCharacter::new(&ctx, 0x20),
+            "Invalid simple character 0x20"
+        );
+        assert_err!(
+            SimpleCharacter::new(&ctx, 0x7F),
+            "Invalid simple character 0x7F"
+        );
+        assert_err!(
+            SimpleCharacter::new(&ctx, 0x4A),
+            "Invalid simple character 0x4A"
+        );
+        assert_err!(
+            SimpleCharacter::new(&ctx, 0x60),
+            "Invalid simple character 0x60"
+        );
     }
 
     #[test]
@@ -1495,13 +1802,34 @@ mod tests {
         let mut ctx = Context::new(DisplayComponent::VGP2);
         ctx.attributes.character_set = CharacterSet::G1;
 
-        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x20), Ok(SemiGraphicCharacter(0x20)));
-        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x3F), Ok(SemiGraphicCharacter(0x3F)));
-        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x60), Ok(SemiGraphicCharacter(0x60)));
-        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x5F), Ok(SemiGraphicCharacter(0x5F)));
-        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x40), Ok(SemiGraphicCharacter(0x60)));
-        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x55), Ok(SemiGraphicCharacter(0x75)));
-        assert_eq!(SemiGraphicCharacter::new(&ctx, 0x7F), Ok(SemiGraphicCharacter(0x5F)));
+        assert_eq!(
+            SemiGraphicCharacter::new(&ctx, 0x20),
+            Ok(SemiGraphicCharacter(0x20))
+        );
+        assert_eq!(
+            SemiGraphicCharacter::new(&ctx, 0x3F),
+            Ok(SemiGraphicCharacter(0x3F))
+        );
+        assert_eq!(
+            SemiGraphicCharacter::new(&ctx, 0x60),
+            Ok(SemiGraphicCharacter(0x60))
+        );
+        assert_eq!(
+            SemiGraphicCharacter::new(&ctx, 0x5F),
+            Ok(SemiGraphicCharacter(0x5F))
+        );
+        assert_eq!(
+            SemiGraphicCharacter::new(&ctx, 0x40),
+            Ok(SemiGraphicCharacter(0x60))
+        );
+        assert_eq!(
+            SemiGraphicCharacter::new(&ctx, 0x55),
+            Ok(SemiGraphicCharacter(0x75))
+        );
+        assert_eq!(
+            SemiGraphicCharacter::new(&ctx, 0x7F),
+            Ok(SemiGraphicCharacter(0x5F))
+        );
 
         assert!(!SemiGraphicCharacter::supports(&ctx, 0x00));
         assert!(!SemiGraphicCharacter::supports(&ctx, 0x1F));
@@ -1526,19 +1854,40 @@ mod tests {
         assert!(!SemiGraphicCharacter::supports(&ctx, 0x20));
         assert!(!SemiGraphicCharacter::supports(&ctx, 0x3F));
 
-        assert_err!(SemiGraphicCharacter::new(&ctx, 0x20), "Invalid semi-graphic character 0x20");
-        assert_err!(SemiGraphicCharacter::new(&ctx, 0x3F), "Invalid semi-graphic character 0x3F");
-        assert_err!(SemiGraphicCharacter::new(&ctx, 0x45), "Invalid semi-graphic character 0x45");
-        assert_err!(SemiGraphicCharacter::new(&ctx, 0x5F), "Invalid semi-graphic character 0x5F");
-        assert_err!(SemiGraphicCharacter::new(&ctx, 0x60), "Invalid semi-graphic character 0x60");
-        assert_err!(SemiGraphicCharacter::new(&ctx, 0x7F), "Invalid semi-graphic character 0x7F");
+        assert_err!(
+            SemiGraphicCharacter::new(&ctx, 0x20),
+            "Invalid semi-graphic character 0x20"
+        );
+        assert_err!(
+            SemiGraphicCharacter::new(&ctx, 0x3F),
+            "Invalid semi-graphic character 0x3F"
+        );
+        assert_err!(
+            SemiGraphicCharacter::new(&ctx, 0x45),
+            "Invalid semi-graphic character 0x45"
+        );
+        assert_err!(
+            SemiGraphicCharacter::new(&ctx, 0x5F),
+            "Invalid semi-graphic character 0x5F"
+        );
+        assert_err!(
+            SemiGraphicCharacter::new(&ctx, 0x60),
+            "Invalid semi-graphic character 0x60"
+        );
+        assert_err!(
+            SemiGraphicCharacter::new(&ctx, 0x7F),
+            "Invalid semi-graphic character 0x7F"
+        );
     }
 
     #[test]
     fn test_special_character() {
         let ctx = Context::new(DisplayComponent::VGP2);
 
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19), Ok(SpecialCharacter::Incomplete));
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19),
+            Ok(SpecialCharacter::Incomplete)
+        );
 
         assert!(SpecialCharacter::supports(&ctx, 0x19));
         assert!(!SpecialCharacter::supports(&ctx, 0x1B));
@@ -1546,32 +1895,144 @@ mod tests {
         assert!(!SpecialCharacter::supports(&ctx, 0x1F));
         assert!(!SpecialCharacter::supports(&ctx, 0x7F));
 
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19), Ok(SpecialCharacter::Incomplete));
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19),
+            Ok(SpecialCharacter::Incomplete)
+        );
 
-        assert_err!(SpecialCharacter::new(&ctx, 0x00), "Invalid special character 0x00");
-        assert_err!(SpecialCharacter::new(&ctx, 0x1B), "Invalid special character 0x1B");
-        assert_err!(SpecialCharacter::new(&ctx, 0x1F), "Invalid special character 0x1F");
+        assert_err!(
+            SpecialCharacter::new(&ctx, 0x00),
+            "Invalid special character 0x00"
+        );
+        assert_err!(
+            SpecialCharacter::new(&ctx, 0x1B),
+            "Invalid special character 0x1B"
+        );
+        assert_err!(
+            SpecialCharacter::new(&ctx, 0x1F),
+            "Invalid special character 0x1F"
+        );
 
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, GRAVE), Ok(SpecialCharacter::Grave(None)));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ACUTE), Ok(SpecialCharacter::Acute(None)));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, CIRCUMFLEX), Ok(SpecialCharacter::Circumflex(None)));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, DIAERESIS), Ok(SpecialCharacter::Diaeresis(None)));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, CEDILLA), Ok(SpecialCharacter::Cedilla(None)));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, LOWER_OE), Ok(SpecialCharacter::LowerOE));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, UPPER_OE), Ok(SpecialCharacter::UpperOE));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, POUND), Ok(SpecialCharacter::Pound));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, DOLLAR), Ok(SpecialCharacter::Dollar));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, NUMBER_SIGN), Ok(SpecialCharacter::NumberSign));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ARROW_LEFT), Ok(SpecialCharacter::ArrowLeft));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ARROW_UP), Ok(SpecialCharacter::ArrowUp));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ARROW_RIGHT), Ok(SpecialCharacter::ArrowRight));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ARROW_DOWN), Ok(SpecialCharacter::ArrowDown));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, DEGREE), Ok(SpecialCharacter::Degree));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, PLUS_OR_MINUS), Ok(SpecialCharacter::PlusOrMinus));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, OBELUS), Ok(SpecialCharacter::Obelus));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ONE_QUARTER), Ok(SpecialCharacter::OneQuarter));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ONE_HALF), Ok(SpecialCharacter::OneHalf));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, THREE_QUARTERS), Ok(SpecialCharacter::ThreeQuarters));
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, GRAVE),
+            Ok(SpecialCharacter::Grave(None))
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, ACUTE),
+            Ok(SpecialCharacter::Acute(None))
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, CIRCUMFLEX),
+            Ok(SpecialCharacter::Circumflex(None))
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, DIAERESIS),
+            Ok(SpecialCharacter::Diaeresis(None))
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, CEDILLA),
+            Ok(SpecialCharacter::Cedilla(None))
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, LOWER_OE),
+            Ok(SpecialCharacter::LowerOE)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, UPPER_OE),
+            Ok(SpecialCharacter::UpperOE)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, POUND),
+            Ok(SpecialCharacter::Pound)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, DOLLAR),
+            Ok(SpecialCharacter::Dollar)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, NUMBER_SIGN),
+            Ok(SpecialCharacter::NumberSign)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, ARROW_LEFT),
+            Ok(SpecialCharacter::ArrowLeft)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, ARROW_UP),
+            Ok(SpecialCharacter::ArrowUp)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, ARROW_RIGHT),
+            Ok(SpecialCharacter::ArrowRight)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, ARROW_DOWN),
+            Ok(SpecialCharacter::ArrowDown)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, DEGREE),
+            Ok(SpecialCharacter::Degree)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, PLUS_OR_MINUS),
+            Ok(SpecialCharacter::PlusOrMinus)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, OBELUS),
+            Ok(SpecialCharacter::Obelus)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, ONE_QUARTER),
+            Ok(SpecialCharacter::OneQuarter)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, ONE_HALF),
+            Ok(SpecialCharacter::OneHalf)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, THREE_QUARTERS),
+            Ok(SpecialCharacter::ThreeQuarters)
+        );
 
         assert!(!SpecialCharacter::Grave(None).is_complete());
         assert!(!SpecialCharacter::Acute(None).is_complete());
@@ -1585,11 +2046,26 @@ mod tests {
     #[test]
     fn test_special_character_vgp2_specific() {
         let ctx = Context::new(DisplayComponent::VGP2);
-        assert_eq!(SpecialCharacter::Grave(None).consume(&ctx, b'a'), Ok(SpecialCharacter::Grave(Some(b'a'))));
-        assert_eq!(SpecialCharacter::Acute(None).consume(&ctx, b'e'), Ok(SpecialCharacter::Acute(Some(b'e'))));
-        assert_eq!(SpecialCharacter::Circumflex(None).consume(&ctx, b'o'), Ok(SpecialCharacter::Circumflex(Some(b'o'))));
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, b'i'), Ok(SpecialCharacter::Diaeresis(Some(b'i'))));
-        assert_eq!(SpecialCharacter::Cedilla(None).consume(&ctx, b'c'), Ok(SpecialCharacter::Cedilla(Some(b'c'))));
+        assert_eq!(
+            SpecialCharacter::Grave(None).consume(&ctx, b'a'),
+            Ok(SpecialCharacter::Grave(Some(b'a')))
+        );
+        assert_eq!(
+            SpecialCharacter::Acute(None).consume(&ctx, b'e'),
+            Ok(SpecialCharacter::Acute(Some(b'e')))
+        );
+        assert_eq!(
+            SpecialCharacter::Circumflex(None).consume(&ctx, b'o'),
+            Ok(SpecialCharacter::Circumflex(Some(b'o')))
+        );
+        assert_eq!(
+            SpecialCharacter::Diaeresis(None).consume(&ctx, b'i'),
+            Ok(SpecialCharacter::Diaeresis(Some(b'i')))
+        );
+        assert_eq!(
+            SpecialCharacter::Cedilla(None).consume(&ctx, b'c'),
+            Ok(SpecialCharacter::Cedilla(Some(b'c')))
+        );
 
         assert_err!(
             SpecialCharacter::Acute(None).consume(&ctx, b'a'),
@@ -1629,12 +2105,16 @@ mod tests {
         //test characters not supported in VGP2 todo: better error message
 
         assert_err!(
-            SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ESZETT),
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, ESZETT),
             "Invalid special character 0x7B",
         );
 
         assert_err!(
-            SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, PARAGRAPH),
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, PARAGRAPH),
             "Invalid special character 0x27",
         );
     }
@@ -1642,11 +2122,30 @@ mod tests {
     #[test]
     fn test_special_character_vgp5_specific() {
         let ctx = Context::new(DisplayComponent::VGP5);
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, b'a'), Ok(SpecialCharacter::Diaeresis(Some(b'a'))));
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, b'o'), Ok(SpecialCharacter::Diaeresis(Some(b'o'))));
-        assert_eq!(SpecialCharacter::Diaeresis(None).consume(&ctx, b'u'), Ok(SpecialCharacter::Diaeresis(Some(b'u'))));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, ESZETT), Ok(SpecialCharacter::Eszett));
-        assert_eq!(SpecialCharacter::new(&ctx, 0x19).unwrap().consume(&ctx, PARAGRAPH), Ok(SpecialCharacter::Paragraph));
+        assert_eq!(
+            SpecialCharacter::Diaeresis(None).consume(&ctx, b'a'),
+            Ok(SpecialCharacter::Diaeresis(Some(b'a')))
+        );
+        assert_eq!(
+            SpecialCharacter::Diaeresis(None).consume(&ctx, b'o'),
+            Ok(SpecialCharacter::Diaeresis(Some(b'o')))
+        );
+        assert_eq!(
+            SpecialCharacter::Diaeresis(None).consume(&ctx, b'u'),
+            Ok(SpecialCharacter::Diaeresis(Some(b'u')))
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, ESZETT),
+            Ok(SpecialCharacter::Eszett)
+        );
+        assert_eq!(
+            SpecialCharacter::new(&ctx, 0x19)
+                .unwrap()
+                .consume(&ctx, PARAGRAPH),
+            Ok(SpecialCharacter::Paragraph)
+        );
     }
 
     #[test]
@@ -1686,47 +2185,68 @@ mod tests {
     fn test_csi_move_cursor() {
         let ctx = Context::new(DisplayComponent::VGP2);
 
-        let move_left_29 = Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x32).unwrap()
-            .consume(&ctx, 0x39).unwrap()
-            .consume(&ctx, 0x44).unwrap();
+        let move_left_29 = Csi::new(&ctx, 0x5B)
+            .unwrap()
+            .consume(&ctx, 0x32)
+            .unwrap()
+            .consume(&ctx, 0x39)
+            .unwrap()
+            .consume(&ctx, 0x44)
+            .unwrap();
 
         assert_eq!(move_left_29, Csi::MoveLeft(29));
         assert!(move_left_29.is_complete());
 
-        let move_right_11 = Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x43).unwrap();
+        let move_right_11 = Csi::new(&ctx, 0x5B)
+            .unwrap()
+            .consume(&ctx, 0x31)
+            .unwrap()
+            .consume(&ctx, 0x31)
+            .unwrap()
+            .consume(&ctx, 0x43)
+            .unwrap();
 
         assert_eq!(move_right_11, Csi::MoveRight(11));
         assert!(move_right_11.is_complete());
 
-        let move_up_7 = Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x37).unwrap()
-            .consume(&ctx, 0x41).unwrap();
+        let move_up_7 = Csi::new(&ctx, 0x5B)
+            .unwrap()
+            .consume(&ctx, 0x37)
+            .unwrap()
+            .consume(&ctx, 0x41)
+            .unwrap();
 
         assert_eq!(move_up_7, Csi::MoveUp(7));
         assert!(move_up_7.is_complete());
 
-        let move_down_3 = Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x30).unwrap()
-            .consume(&ctx, 0x33).unwrap()
-            .consume(&ctx, 0x42).unwrap();
+        let move_down_3 = Csi::new(&ctx, 0x5B)
+            .unwrap()
+            .consume(&ctx, 0x30)
+            .unwrap()
+            .consume(&ctx, 0x33)
+            .unwrap()
+            .consume(&ctx, 0x42)
+            .unwrap();
 
         assert_eq!(move_down_3, Csi::MoveDown(3));
         assert!(move_down_3.is_complete());
 
-        let move_right_1 = Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x43).unwrap();
+        let move_right_1 = Csi::new(&ctx, 0x5B)
+            .unwrap()
+            .consume(&ctx, 0x31)
+            .unwrap()
+            .consume(&ctx, 0x43)
+            .unwrap();
 
         assert_eq!(move_right_1, Csi::MoveRight(1));
         assert!(move_right_1.is_complete());
 
-        let move_left_0 = Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x30).unwrap()
-            .consume(&ctx, 0x44).unwrap();
+        let move_left_0 = Csi::new(&ctx, 0x5B)
+            .unwrap()
+            .consume(&ctx, 0x30)
+            .unwrap()
+            .consume(&ctx, 0x44)
+            .unwrap();
 
         assert_eq!(move_left_0, Csi::MoveLeft(0));
         assert!(move_left_0.is_complete());
@@ -1746,31 +2266,48 @@ mod tests {
     fn test_csi_set_cursor() {
         let ctx = Context::new(DisplayComponent::VGP2);
 
-        let set_cursor_0_1 = Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x3B).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x48).unwrap();
+        let set_cursor_0_1 = Csi::new(&ctx, 0x5B)
+            .unwrap()
+            .consume(&ctx, 0x31)
+            .unwrap()
+            .consume(&ctx, 0x3B)
+            .unwrap()
+            .consume(&ctx, 0x31)
+            .unwrap()
+            .consume(&ctx, 0x48)
+            .unwrap();
 
         assert_eq!(set_cursor_0_1, Csi::SetCursor(1, 1));
         assert!(set_cursor_0_1.is_complete());
 
-        let set_cursor_1_2 = Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x32).unwrap()
-            .consume(&ctx, 0x3B).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x48).unwrap();
+        let set_cursor_1_2 = Csi::new(&ctx, 0x5B)
+            .unwrap()
+            .consume(&ctx, 0x32)
+            .unwrap()
+            .consume(&ctx, 0x3B)
+            .unwrap()
+            .consume(&ctx, 0x31)
+            .unwrap()
+            .consume(&ctx, 0x48)
+            .unwrap();
 
         assert_eq!(set_cursor_1_2, Csi::SetCursor(1, 2));
         assert!(set_cursor_1_2.is_complete());
 
-        let set_cursor_34_13 = Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x33).unwrap()
-            .consume(&ctx, 0x3B).unwrap()
-            .consume(&ctx, 0x33).unwrap()
-            .consume(&ctx, 0x34).unwrap()
-            .consume(&ctx, 0x48).unwrap();
+        let set_cursor_34_13 = Csi::new(&ctx, 0x5B)
+            .unwrap()
+            .consume(&ctx, 0x31)
+            .unwrap()
+            .consume(&ctx, 0x33)
+            .unwrap()
+            .consume(&ctx, 0x3B)
+            .unwrap()
+            .consume(&ctx, 0x33)
+            .unwrap()
+            .consume(&ctx, 0x34)
+            .unwrap()
+            .consume(&ctx, 0x48)
+            .unwrap();
 
         assert_eq!(set_cursor_34_13, Csi::SetCursor(34, 13));
         assert!(set_cursor_34_13.is_complete());
@@ -1781,10 +2318,13 @@ mod tests {
         let ctx = Context::new(DisplayComponent::VGP2);
 
         assert_err!(
-            Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x3B).unwrap()
-            .consume(&ctx, 0x48),
+            Csi::new(&ctx, 0x5B)
+                .unwrap()
+                .consume(&ctx, 0x31)
+                .unwrap()
+                .consume(&ctx, 0x3B)
+                .unwrap()
+                .consume(&ctx, 0x48),
             "Unsupported or invalid byte 0x48 for sequence IncompleteSetCursor(None, Some(1))",
         );
 
@@ -1794,30 +2334,168 @@ mod tests {
         );
 
         assert_err!(
-            Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x3B).unwrap()
-            .consume(&ctx, 0x3B),
+            Csi::new(&ctx, 0x5B)
+                .unwrap()
+                .consume(&ctx, 0x31)
+                .unwrap()
+                .consume(&ctx, 0x3B)
+                .unwrap()
+                .consume(&ctx, 0x3B),
             "Unsupported or invalid byte 0x3B for sequence IncompleteSetCursor(None, Some(1))",
         );
 
         assert_err!(
-            Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x3B).unwrap()
-            .consume(&ctx, 0x30).unwrap()
-            .consume(&ctx, 0x3B),
+            Csi::new(&ctx, 0x5B)
+                .unwrap()
+                .consume(&ctx, 0x31)
+                .unwrap()
+                .consume(&ctx, 0x3B)
+                .unwrap()
+                .consume(&ctx, 0x30)
+                .unwrap()
+                .consume(&ctx, 0x3B),
             "Unsupported or invalid byte 0x3B for sequence IncompleteSetCursor(Some(0), Some(1))",
         );
 
         assert_err!(
-            Csi::new(&ctx, 0x5B).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x3B).unwrap()
-            .consume(&ctx, 0x31).unwrap()
-            .consume(&ctx, 0x48).unwrap()
-            .consume(&ctx, 0x48),
+            Csi::new(&ctx, 0x5B)
+                .unwrap()
+                .consume(&ctx, 0x31)
+                .unwrap()
+                .consume(&ctx, 0x3B)
+                .unwrap()
+                .consume(&ctx, 0x31)
+                .unwrap()
+                .consume(&ctx, 0x48)
+                .unwrap()
+                .consume(&ctx, 0x48),
             "Unsupported or invalid byte 0x48 for sequence SetCursor(1, 1)",
         );
+    }
+
+    #[test]
+    fn test_can_fills_line_without_moving_cursor() {
+        let mut parser = Parser::new(DisplayComponent::VGP2);
+        parser.ctx.cursor_x = 3;
+        parser.ctx.attributes.background = BLUE;
+        parser.ctx.attributes.foreground = GREEN;
+
+        parser.consume(ESC).unwrap();
+        parser.consume(CSI).unwrap();
+        parser.consume(CAN).unwrap();
+
+        assert_eq!(parser.ctx.cursor_x, 3);
+        assert!(parser.ctx.grid.cell(2, 1).is_delimiter);
+
+        for column in 3..=parser.ctx.screen_width {
+            let cell = parser.ctx.grid.cell(column, 1);
+            assert_eq!(cell.content, ' ');
+            assert!(!cell.is_delimiter);
+            assert_eq!(cell.attributes.background, parser.ctx.attributes.background);
+            assert_eq!(cell.attributes.foreground, parser.ctx.attributes.foreground);
+        }
+    }
+
+    #[test]
+    fn test_clear_screen_uses_delimiters_and_resets_attributes() {
+        let mut parser = Parser::new(DisplayComponent::VGP2);
+        parser.ctx.attributes.background = BLUE;
+        parser.ctx.attributes.foreground = RED;
+        parser.ctx.visible_cursor = true;
+
+        parser.consume(FF).unwrap();
+
+        let cell = parser.ctx.grid.cell(1, 1);
+        assert!(cell.is_delimiter);
+        assert_eq!(cell.attributes.character_set, CharacterSet::G1);
+        assert_eq!(cell.attributes.background, BLACK);
+        assert_eq!(cell.attributes.foreground, BLACK);
+
+        assert_eq!(parser.ctx.attributes.character_set, CharacterSet::G0);
+        assert_eq!(parser.ctx.attributes.background, BLACK);
+        assert_eq!(parser.ctx.attributes.foreground, WHITE);
+        assert!(!parser.ctx.attributes.blinking);
+        assert!(!parser.ctx.attributes.double_height);
+        assert!(!parser.ctx.attributes.double_width);
+        assert!(!parser.ctx.attributes.invert);
+        assert!(!parser.ctx.attributes.mask);
+        assert!(!parser.ctx.attributes.underline);
+    }
+
+    #[test]
+    fn test_insert_mode_shifts_row_only() {
+        let mut ctx = Context::new(DisplayComponent::VGP2);
+
+        ctx.print('A');
+        ctx.print('B');
+        ctx.print('C');
+
+        ctx.set_cursor(1, 2, false);
+        ctx.print('Y');
+
+        ctx.set_cursor(2, 1, false);
+        ctx.insert = true;
+        ctx.print('Z');
+
+        assert_eq!(ctx.grid.cell(1, 1).content, 'A');
+        assert_eq!(ctx.grid.cell(2, 1).content, 'Z');
+        assert_eq!(ctx.grid.cell(3, 1).content, 'B');
+        assert_eq!(ctx.grid.cell(4, 1).content, 'C');
+        assert_eq!(ctx.grid.cell(1, 2).content, 'Y');
+    }
+
+    #[test]
+    fn test_delete_characters_keeps_attributes() {
+        let mut ctx = Context::new(DisplayComponent::VGP2);
+        ctx.attributes.foreground = RED;
+
+        ctx.print('A');
+        ctx.print('B');
+        ctx.print('C');
+        ctx.print('D');
+
+        ctx.set_cursor(2, 1, false);
+        ctx.consume(&Sequence::Escaped(EscapedSequence::Csi(
+            Csi::ClearAfterCursor(2),
+        )))
+        .unwrap();
+
+        assert_eq!(ctx.grid.cell(1, 1).content, 'A');
+        assert_eq!(ctx.grid.cell(2, 1).content, 'D');
+        assert_eq!(ctx.grid.cell(ctx.screen_width - 1, 1).content, ' ');
+        assert_eq!(ctx.grid.cell(ctx.screen_width, 1).content, ' ');
+        assert_eq!(
+            ctx.grid.cell(ctx.screen_width - 1, 1).attributes.foreground,
+            RED
+        );
+        assert_eq!(
+            ctx.grid.cell(ctx.screen_width, 1).attributes.foreground,
+            RED
+        );
+    }
+
+    #[test]
+    fn test_move_cursor_y_wraps_in_page_mode() {
+        let mut ctx = Context::new(DisplayComponent::VGP2);
+        ctx.cursor_y = ctx.screen_height;
+
+        ctx.move_cursor_y(1, true);
+        assert_eq!(ctx.cursor_y, 1);
+    }
+
+    #[test]
+    fn test_record_separator_resets_attributes() {
+        let mut ctx = Context::new(DisplayComponent::VGP2);
+        ctx.attributes.blinking = true;
+        ctx.attributes.foreground = RED;
+        ctx.attributes.character_set = CharacterSet::G1;
+
+        ctx.consume(&Sequence::RecordSeparator).unwrap();
+
+        assert_eq!(ctx.cursor_x, 1);
+        assert_eq!(ctx.cursor_y, 1);
+        assert_eq!(ctx.attributes.character_set, CharacterSet::G0);
+        assert_eq!(ctx.attributes.foreground, WHITE);
+        assert!(!ctx.attributes.blinking);
     }
 }

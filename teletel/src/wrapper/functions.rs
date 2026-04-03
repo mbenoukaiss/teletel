@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use std::io::Result as IoResult;
 use crate::terminal::{ToTerminal, WriteableTerminal};
 use crate::{declare, Error};
+use std::io::Result as IoResult;
 use teletel_protocol::codes::*;
 
 declare!(Clear, [FF]);
@@ -217,10 +217,10 @@ impl ToTerminal for ScreenMasking {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, fs};
     use super::*;
-    use teletel_derive::sg;
     use crate::terminal::RawBuffer;
+    use std::{env, fs};
+    use teletel_derive::sg;
 
     #[test]
     fn test_clear() {
@@ -251,29 +251,48 @@ mod tests {
 
         let mut data = RawBuffer::new();
         Blink("bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x48, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x49]);
+        assert_eq!(
+            data.data(),
+            [0x1B, 0x48, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x49]
+        );
     }
 
     #[test]
     fn test_background() {
         let mut data = RawBuffer::new();
-        Background(Color::Gray60, b'A').to_terminal(&mut data).unwrap();
+        Background(Color::Gray60, b'A')
+            .to_terminal(&mut data)
+            .unwrap();
+
         assert_eq!(data.data(), [0x1B, 0x55, b'A', 0x1B, 0x50]);
 
         let mut data = RawBuffer::new();
-        Background(Color::Gray90, "bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x53, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x50]);
+        Background(Color::Gray90, "bonjour")
+            .to_terminal(&mut data)
+            .unwrap();
+
+        assert_eq!(
+            data.data(),
+            [0x1B, 0x53, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x50]
+        );
     }
 
     #[test]
     fn test_foreground() {
         let mut data = RawBuffer::new();
-        Foreground(Color::Gray70, b'A').to_terminal(&mut data).unwrap();
+        Foreground(Color::Gray70, b'A')
+            .to_terminal(&mut data)
+            .unwrap();
         assert_eq!(data.data(), [0x1B, 0x42, b'A', 0x1B, 0x47]);
 
         let mut data = RawBuffer::new();
-        Foreground(Color::Gray40, "bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x44, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x47]);
+        Foreground(Color::Gray40, "bonjour")
+            .to_terminal(&mut data)
+            .unwrap();
+        assert_eq!(
+            data.data(),
+            [0x1B, 0x44, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x47]
+        );
     }
 
     #[test]
@@ -284,7 +303,10 @@ mod tests {
 
         let mut data = RawBuffer::new();
         Inverted("bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x5D, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x5C]);
+        assert_eq!(
+            data.data(),
+            [0x1B, 0x5D, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x5C]
+        );
     }
 
     #[test]
@@ -295,7 +317,10 @@ mod tests {
 
         let mut data = RawBuffer::new();
         Big("bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x4F, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x4C]);
+        assert_eq!(
+            data.data(),
+            [0x1B, 0x4F, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x4C]
+        );
     }
 
     #[test]
@@ -306,18 +331,23 @@ mod tests {
 
         let mut data = RawBuffer::new();
         Mask("bonjour").to_terminal(&mut data).unwrap();
-        assert_eq!(data.data(), [0x1B, 0x58, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x5F]);
+        assert_eq!(
+            data.data(),
+            [0x1B, 0x58, b'b', b'o', b'n', b'j', b'o', b'u', b'r', 0x1B, 0x5F]
+        );
     }
 
     #[test]
     fn test_semigraphic() {
         let mut data = RawBuffer::new();
         SemiGraphic(list![
-            sg!(00/00/00),
-            sg!(00/01/11),
-            sg!(01/11/01),
-            sg!(11/11/11),
-        ]).to_terminal(&mut data).unwrap();
+            sg!(000000),
+            sg!(000111),
+            sg!(011101),
+            sg!(111111),
+        ])
+        .to_terminal(&mut data)
+        .unwrap();
 
         assert_eq!(data.data(), [0x0E, 0x20, 0x78, 0x6E, 0x5F, 0x0F]);
     }
@@ -330,7 +360,7 @@ mod tests {
         assert_eq!(data.data(), [b'A', 0x12, 0x42]);
 
         let mut data = RawBuffer::new();
-        Repeat(sg!(01/11/01), 3).to_terminal(&mut data).unwrap();
+        Repeat(sg!(011101), 3).to_terminal(&mut data).unwrap();
 
         assert_eq!(data.data(), [0x6E, 0x12, 0x42]);
     }
@@ -353,17 +383,26 @@ mod tests {
         let mut data = RawBuffer::new();
         SetCursor(1, 1).to_terminal(&mut data).unwrap();
 
-        assert_eq!(data.data(), [0x1B, 0x5B, 0x30, 0x31, 0x3B, 0x30, 0x31, 0x48]);
+        assert_eq!(
+            data.data(),
+            [0x1B, 0x5B, 0x30, 0x31, 0x3B, 0x30, 0x31, 0x48]
+        );
 
         let mut data = RawBuffer::new();
         SetCursor(2, 2).to_terminal(&mut data).unwrap();
 
-        assert_eq!(data.data(), [0x1B, 0x5B, 0x30, 0x32, 0x3B, 0x30, 0x32, 0x48]);
+        assert_eq!(
+            data.data(),
+            [0x1B, 0x5B, 0x30, 0x32, 0x3B, 0x30, 0x32, 0x48]
+        );
 
         let mut data = RawBuffer::new();
         SetCursor(10, 20).to_terminal(&mut data).unwrap();
 
-        assert_eq!(data.data(), [0x1B, 0x5B, 0x32, 0x30, 0x3B, 0x31, 0x30, 0x48]);
+        assert_eq!(
+            data.data(),
+            [0x1B, 0x5B, 0x32, 0x30, 0x3B, 0x31, 0x30, 0x48]
+        );
     }
 
     #[test]
@@ -393,53 +432,79 @@ mod tests {
     fn test_move_cursor_small_amounts() {
         let mut data = RawBuffer::new();
         MoveCursor(Direction::Up, 1).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Down, 1).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Right, 1).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Left, 1).to_terminal(&mut data).unwrap();
+        MoveCursor(Direction::Down, 1)
+            .to_terminal(&mut data)
+            .unwrap();
+        MoveCursor(Direction::Right, 1)
+            .to_terminal(&mut data)
+            .unwrap();
+        MoveCursor(Direction::Left, 1)
+            .to_terminal(&mut data)
+            .unwrap();
 
         assert_eq!(data.data(), [0x0B, 0x0A, 0x09, 0x08]);
 
         let mut data = RawBuffer::new();
         MoveCursor(Direction::Up, 2).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Down, 3).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Right, 4).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Left, 4).to_terminal(&mut data).unwrap();
+        MoveCursor(Direction::Down, 3)
+            .to_terminal(&mut data)
+            .unwrap();
+        MoveCursor(Direction::Right, 4)
+            .to_terminal(&mut data)
+            .unwrap();
+        MoveCursor(Direction::Left, 4)
+            .to_terminal(&mut data)
+            .unwrap();
 
-        assert_eq!(data.data(), [
-            0x0B, 0x0B,
-            0x0A, 0x0A, 0x0A,
-            0x09, 0x09, 0x09, 0x09,
-            0x08, 0x08, 0x08, 0x08,
-        ]);
+        assert_eq!(
+            data.data(),
+            [0x0B, 0x0B, 0x0A, 0x0A, 0x0A, 0x09, 0x09, 0x09, 0x09, 0x08, 0x08, 0x08, 0x08,]
+        );
     }
 
     #[test]
     fn test_move_cursor_big_amounts() {
         let mut data = RawBuffer::new();
         MoveCursor(Direction::Up, 7).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Down, 8).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Right, 9).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Left, 10).to_terminal(&mut data).unwrap();
+        MoveCursor(Direction::Down, 8)
+            .to_terminal(&mut data)
+            .unwrap();
+        MoveCursor(Direction::Right, 9)
+            .to_terminal(&mut data)
+            .unwrap();
+        MoveCursor(Direction::Left, 10)
+            .to_terminal(&mut data)
+            .unwrap();
 
-        assert_eq!(data.data(), [
-            0x1B, 0x5B, 0x30, 0x37, 0x41,
-            0x1B, 0x5B, 0x30, 0x38, 0x42,
-            0x1B, 0x5B, 0x30, 0x39, 0x43,
-            0x1B, 0x5B, 0x31, 0x30, 0x44,
-        ]);
+        assert_eq!(
+            data.data(),
+            [
+                0x1B, 0x5B, 0x30, 0x37, 0x41, 0x1B, 0x5B, 0x30, 0x38, 0x42, 0x1B, 0x5B, 0x30, 0x39,
+                0x43, 0x1B, 0x5B, 0x31, 0x30, 0x44,
+            ]
+        );
 
         let mut data = RawBuffer::new();
-        MoveCursor(Direction::Up, 15).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Down, 21).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Right, 33).to_terminal(&mut data).unwrap();
-        MoveCursor(Direction::Left, 40).to_terminal(&mut data).unwrap();
+        MoveCursor(Direction::Up, 15)
+            .to_terminal(&mut data)
+            .unwrap();
+        MoveCursor(Direction::Down, 21)
+            .to_terminal(&mut data)
+            .unwrap();
+        MoveCursor(Direction::Right, 33)
+            .to_terminal(&mut data)
+            .unwrap();
+        MoveCursor(Direction::Left, 40)
+            .to_terminal(&mut data)
+            .unwrap();
 
-        assert_eq!(data.data(), [
-            0x1B, 0x5B, 0x31, 0x35, 0x41,
-            0x1B, 0x5B, 0x32, 0x31, 0x42,
-            0x1B, 0x5B, 0x33, 0x33, 0x43,
-            0x1B, 0x5B, 0x34, 0x30, 0x44,
-        ]);
+        assert_eq!(
+            data.data(),
+            [
+                0x1B, 0x5B, 0x31, 0x35, 0x41, 0x1B, 0x5B, 0x32, 0x31, 0x42, 0x1B, 0x5B, 0x33, 0x33,
+                0x43, 0x1B, 0x5B, 0x34, 0x30, 0x44,
+            ]
+        );
     }
 
     #[test]
@@ -449,14 +514,19 @@ mod tests {
         assert_eq!(buf.data(), "bonjour".as_bytes());
 
         let mut buf = RawBuffer::new();
-        Videotex::new(vec![0x01, 0x02, 0x03]).to_terminal(&mut buf).unwrap();
+        Videotex::new(vec![0x01, 0x02, 0x03])
+            .to_terminal(&mut buf)
+            .unwrap();
         assert_eq!(buf.data(), vec![0x01, 0x02, 0x03]);
 
         let path = format!("{}/test_videotex.vdt", env::temp_dir().to_str().unwrap());
         fs::write(&path, "bonjour le fichier").unwrap();
 
         let mut buf = RawBuffer::new();
-        Videotex::from_path(&path).unwrap().to_terminal(&mut buf).unwrap();
+        Videotex::from_path(&path)
+            .unwrap()
+            .to_terminal(&mut buf)
+            .unwrap();
 
         assert_eq!(buf.data(), "bonjour le fichier".as_bytes());
 

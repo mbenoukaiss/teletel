@@ -10,11 +10,13 @@ use std::str::FromStr;
 /// background color.
 ///
 /// # Format
-/// Input should be three slash-separated groups of 2 digits which are either
-/// 1 or 0 where 1 means the square is filled and displays the foreground color,
-/// or 0 which means the square is empty and displays the background color.
+/// Input should be six digits which are either 1 or 0 where 1 means the square
+/// is filled and displays the foreground color, or 0 which means the square is
+/// empty and displays the background color. You can also separate the digits
+/// into three slash-separated groups of 2 digits.
 ///
-/// Or in a more concise way if you speak regex `^[01]{2}/[01]{2}/[01]{2}$`.
+/// Or in a more concise way if you speak regex
+/// `^(?:[01]{6}|[01]{2}/[01]{2}/[01]{2})$`.
 ///
 /// # Examples
 /// In the following examples the documentation above the macro call shows the pattern
@@ -27,31 +29,31 @@ use std::str::FromStr;
 /// // XX
 /// // X-
 /// // --
-/// let code = sg!(11/10/00);
+/// let code = sg!(111000);
 ///
 /// // --
 /// // --
 /// // --
-/// let code = sg!(00/00/00);
+/// let code = sg!(000000);
 ///
 /// // XX
 /// // XX
 /// // XX
-/// let code = sg!(11/11/11);
+/// let code = sg!(111111);
 ///
 /// // X-
 /// // X-
 /// // X-
-/// let code = sg!(10/10/10);
+/// let code = sg!(101010);
 /// ```
 #[proc_macro]
 pub fn sg(input: TokenStream) -> TokenStream {
-    let format = Regex::new(r"^[01]{2}/[01]{2}/[01]{2}$").unwrap();
+    let format = Regex::new(r"^(?:[01]{6}|[01]{2}/[01]{2}/[01]{2})$").unwrap();
     let mut input = input.to_string();
     input.retain(|c| !c.is_whitespace());
 
     if !format.is_match(&input) {
-        panic!("Invalid semi-graphic character format, expected `[01]{{2}}/[01]{{2}}/[01]{{2}}` got `{}`", input)
+        panic!("Invalid semi-graphic character format, expected `[01]{{6}}` or `[01]{{2}}/[01]{{2}}/[01]{{2}}` got `{}`", input)
     }
 
     let mut binary = input
