@@ -4,10 +4,13 @@ extern crate teletel;
 use std::error::Error;
 use teletel::drawing::RectangleOutline;
 use teletel::functions::{Beep, Blink, Clear, Color, Foreground, Repeat, SetCursor};
-use teletel::terminal::{TcpTerminal, ReadableTerminal};
+use teletel::terminal::{Optional, ReadableTerminal, SerialTerminal, TcpTerminal, Tee};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut term = TcpTerminal::emulator()?;
+    let mut term = Tee::new(
+        Optional::new(SerialTerminal::new("/dev/ttyUSB0", None)),
+        Optional::new(TcpTerminal::emulator()),
+    );
 
     send!(
         &mut term,

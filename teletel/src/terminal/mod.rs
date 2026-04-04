@@ -1,23 +1,25 @@
 mod buffer;
-#[cfg(feature = "tcp-terminal")]
-mod tcp;
+mod combinators;
 mod file;
 #[cfg(feature = "serial-terminal")]
 mod serial;
+#[cfg(feature = "tcp-terminal")]
+mod tcp;
 mod to_terminal;
 
 use std::io::ErrorKind;
 use crate::Error;
 use teletel_protocol::codes::*;
 
-pub use to_terminal::ToTerminal;
 pub use buffer::{Buffer, RawBuffer};
-#[cfg(feature = "tcp-terminal")]
-pub use tcp::TcpTerminal;
+pub use combinators::{Optional, Tap, Tee, pipe, bidirectional_pipe};
 pub use file::FileReceiver;
 #[cfg(feature = "serial-terminal")]
 pub use serial::SerialTerminal;
+#[cfg(feature = "tcp-terminal")]
+pub use tcp::TcpTerminal;
 pub use teletel_protocol::parser::Context;
+pub use to_terminal::ToTerminal;
 
 pub trait Contextualized {
     fn ctx(&self) -> &Context;
