@@ -180,6 +180,25 @@ pub mod proto {
     pub const EIGHTY_COLUMNS: u8 = 0b0000_0001; //p143
 }
 
+/// Keyboard function key codes. Each function key sends a SEP (0x13)
+/// byte followed by a key-specific byte. These are the codes emitted
+/// by Minitel function keys when pressed during a session.
+///
+/// Documented on pages 38-40 and 138-139.
+pub mod keyboard {
+    use super::c0::SEP;
+
+    pub const ENVOI: [u8; 2] = [SEP, 0x41];
+    pub const RETOUR: [u8; 2] = [SEP, 0x42];
+    pub const REPETITION: [u8; 2] = [SEP, 0x43];
+    pub const GUIDE: [u8; 2] = [SEP, 0x44];
+    pub const ANNULATION: [u8; 2] = [SEP, 0x45];
+    pub const SOMMAIRE: [u8; 2] = [SEP, 0x46];
+    pub const CORRECTION: [u8; 2] = [SEP, 0x47];
+    pub const SUITE: [u8; 2] = [SEP, 0x48];
+    pub const CONNEXION_FIN: [u8; 2] = [SEP, 0x49];
+}
+
 pub use c0::*;
 pub use c1::*;
 pub use ss2::*;

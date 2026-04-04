@@ -7,6 +7,13 @@ use teletel_protocol::codes::*;
 
 declare!(Clear, [FF]);
 declare!(ClearRow, [CSI_2_K]);
+declare!(ClearToEndOfScreen, [CSI_J]);
+declare!(ClearToStartOfScreen, [CSI_1_J]);
+declare!(ClearToEndOfRow, [CSI_K]);
+declare!(ClearToStartOfRow, [CSI_1_K]);
+declare!(CancelLine, [CAN]);
+declare!(CursorOn, [CURSOR_ON]);
+declare!(CursorOff, [CURSOR_OFF]);
 declare!(Beep, [BEEP]);
 
 /// Underlines the text in text mode and switches to "separated" blocks when in

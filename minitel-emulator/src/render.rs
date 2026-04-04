@@ -1,4 +1,4 @@
-use crate::config::{EmulatorConfig, SCREEN_COLUMNS, SCREEN_ROWS};
+use crate::config::{EmulatorConfig, GUIDE_PANEL_WIDTH, SCREEN_COLUMNS, SCREEN_ROWS};
 use crate::glyphs::GlyphCache;
 use crate::transport::TcpTransport;
 
@@ -131,15 +131,19 @@ struct CursorOverlay;
 
 fn setup_terminal(mut commands: Commands, config: Res<EmulatorConfig>) {
     let screen_size = config.screen_size();
+    let total_height = screen_size.y + config.cell_size.y * 2.0;
 
     commands.spawn((
         Camera2d,
         Projection::Orthographic(OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical {
-                viewport_height: screen_size.y + config.cell_size.y * 2.0,
+                viewport_height: total_height,
             },
             ..OrthographicProjection::default_2d()
         }),
+        // Shift camera right so the terminal stays visually centered-left
+        // and the guide panel occupies the right side
+        Transform::from_translation(Vec3::new(GUIDE_PANEL_WIDTH / 2.0, 0.0, 0.0)),
     ));
 
     let mut cells = Vec::with_capacity((SCREEN_COLUMNS as usize) * (SCREEN_ROWS as usize));
@@ -180,6 +184,70 @@ fn setup_terminal(mut commands: Commands, config: Res<EmulatorConfig>) {
         .id();
 
     commands.insert_resource(TerminalEntities { cells, cursor });
+
+    // Key guide panel on the right side of the terminal
+    let guide_x = screen_size.x / 2.0 + config.cell_size.x + 10.0;
+    let guide_top = screen_size.y / 2.0 - config.cell_size.y;
+
+    let title_style = (
+        TextFont {
+            font_size: 14.0,
+            ..default()
+        },
+        TextColor(Color::srgb(0.7, 0.7, 0.7)),
+    );
+
+    let key_style = (
+        TextFont {
+            font_size: 12.0,
+            ..default()
+        },
+        TextColor(Color::srgb(0.5, 0.5, 0.5)),
+    );
+
+    let entries: &[(&str, &str)] = &[
+        ("F1", "Envoi"),
+        ("F2", "Retour"),
+        ("F3", "Repetition"),
+        ("F4", "Guide"),
+        ("F5", "Annulation"),
+        ("F6", "Sommaire"),
+        ("F7", "Suite"),
+        ("F8", "Connexion/Fin"),
+        ("F9", "Correction"),
+        ("", ""),
+        ("Arrows", "Cursor"),
+        ("Bksp", "Correction"),
+        ("Enter", "Envoi"),
+        ("Esc", "Escape"),
+    ];
+
+    let label_offset = 70.0;
+
+    commands.spawn((
+        Text2d::new("Keyboard"),
+        title_style.clone(),
+        Anchor::TOP_LEFT,
+        Transform::from_translation(Vec3::new(guide_x, guide_top, FOREGROUND_Z)),
+    ));
+
+    for (i, (key, label)) in entries.iter().enumerate() {
+        let y = guide_top - 22.0 - i as f32 * 16.0;
+        if !key.is_empty() {
+            commands.spawn((
+                Text2d::new(*key),
+                key_style.clone(),
+                Anchor::TOP_LEFT,
+                Transform::from_translation(Vec3::new(guide_x, y, FOREGROUND_Z)),
+            ));
+            commands.spawn((
+                Text2d::new(*label),
+                key_style.clone(),
+                Anchor::TOP_LEFT,
+                Transform::from_translation(Vec3::new(guide_x + label_offset, y, FOREGROUND_Z)),
+            ));
+        }
+    }
 }
 
 fn pump_transport_input(
@@ -205,6 +273,14 @@ fn pump_transport_input(
         }
     }
 
+    // Send protocol response bytes back to the remote host
+    let response = terminal.parser.take_response();
+    if !response.is_empty() {
+        if let Err(err) = transport.write_all(&response) {
+            error!("failed to write protocol response: {err}");
+        }
+    }
+
     if terminal.parser.take_beep() {
         commands.spawn(AudioPlayer(beep_sound.0.clone()));
     }
@@ -221,13 +297,13 @@ fn capture_keyboard_input(
             continue;
         }
 
-        if let Some(text) = &event.text {
-            bytes.extend(text.chars().filter_map(map_character));
+        if let Some(mapped) = map_named_key(event.key_code) {
+            bytes.extend_from_slice(mapped);
             continue;
         }
 
-        if let Some(mapped) = map_named_key(event.key_code) {
-            bytes.push(mapped);
+        if let Some(text) = &event.text {
+            bytes.extend(text.chars().filter_map(map_character));
         }
     }
 
@@ -413,13 +489,47 @@ fn map_character(character: char) -> Option<u8> {
     }
 }
 
-fn map_named_key(code: KeyCode) -> Option<u8> {
-    match code {
-        KeyCode::Enter | KeyCode::NumpadEnter => Some(b'\r'),
-        KeyCode::Backspace => Some(0x08),
-        KeyCode::Tab => Some(b'\t'),
-        KeyCode::Space => Some(b' '),
-        _ => None,
+fn map_named_key(code: KeyCode) -> Option<&'static [u8]> {
+    use teletel_protocol::codes::keyboard;
+
+    if code == KeyCode::Enter || code == KeyCode::NumpadEnter {
+        Some(&[0x0D])
+    } else if code == KeyCode::Space {
+        Some(&[0x20])
+    } else if code == KeyCode::Tab {
+        Some(&[0x09])
+    } else if code == KeyCode::Escape {
+        Some(&[0x1B])
+    } else if code == KeyCode::Backspace || code == KeyCode::Delete {
+        Some(&keyboard::CORRECTION)
+    } else if code == KeyCode::ArrowUp {
+        Some(&[0x0B])
+    } else if code == KeyCode::ArrowDown {
+        Some(&[0x0A])
+    } else if code == KeyCode::ArrowLeft {
+        Some(&[0x08])
+    } else if code == KeyCode::ArrowRight {
+        Some(&[0x09])
+    } else if code == KeyCode::F1 {
+        Some(&keyboard::ENVOI)
+    } else if code == KeyCode::F2 {
+        Some(&keyboard::RETOUR)
+    } else if code == KeyCode::F3 {
+        Some(&keyboard::REPETITION)
+    } else if code == KeyCode::F4 {
+        Some(&keyboard::GUIDE)
+    } else if code == KeyCode::F5 {
+        Some(&keyboard::ANNULATION)
+    } else if code == KeyCode::F6 {
+        Some(&keyboard::SOMMAIRE)
+    } else if code == KeyCode::F7 {
+        Some(&keyboard::SUITE)
+    } else if code == KeyCode::F8 {
+        Some(&keyboard::CONNEXION_FIN)
+    } else if code == KeyCode::F9 {
+        Some(&keyboard::CORRECTION)
+    } else {
+        None
     }
 }
 

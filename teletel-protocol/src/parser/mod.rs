@@ -705,6 +705,7 @@ enum Sequence {
     Repeat(Option<u8>),
     Beep,
     VisibleCursor(bool),
+    ErrorCharacter,
 }
 
 impl Parsable for Sequence {
@@ -747,6 +748,12 @@ impl Parsable for Sequence {
                     Sequence::SubSection(None, None)
                 } else if byte == REP {
                     Sequence::Repeat(None)
+                } else if byte == 0x00 {
+                    // NUL is a padding character, no action (p99)
+                    Sequence::Incomplete
+                } else if byte == 0x1A {
+                    // SUB displays the error symbol (p99)
+                    Sequence::ErrorCharacter
                 } else if byte == BEEP {
                     Sequence::Beep
                 } else if byte == CURSOR_ON {
@@ -1293,6 +1300,7 @@ pub struct Context {
     pub pending_attributes: PendingAttributes,
     saved_state_for_row_zero: Option<SavedState>,
 
+    response: Vec<u8>,
     beep: bool,
 }
 
@@ -1325,6 +1333,7 @@ impl Context {
             pending_attributes: PendingAttributes::default(),
             saved_state_for_row_zero: None,
 
+            response: Vec::new(),
             beep: false,
         }
     }
@@ -1449,7 +1458,11 @@ impl Context {
                     Protocol::Sleep(_) => {}
                     _ => err!("Received incomplete protocol sequence {:?}", pro),
                 },
-                EscapedSequence::GetCursorPosition => {} //todo: handle
+                EscapedSequence::GetCursorPosition => {
+                    self.response.push(US);
+                    self.response.push(0x40 + self.cursor_y);
+                    self.response.push(0x40 + self.cursor_x);
+                }
                 EscapedSequence::ScreenMasking(mask) => self.screen_mask = *mask,
                 _ => err!("Received incomplete escaped sequence {:?}", esc),
             },
@@ -1519,6 +1532,7 @@ impl Context {
                 }
             }
             Sequence::VisibleCursor(value) => self.visible_cursor = *value,
+            Sequence::ErrorCharacter => self.print('\u{7F}')?,
             Sequence::Beep => self.beep = true,
         };
 
@@ -1725,6 +1739,16 @@ impl Parser {
 
     pub fn ctx(&self) -> &Context {
         &self.ctx
+    }
+
+    /// Returns and clears any pending protocol response bytes.
+    pub fn take_response(&mut self) -> Vec<u8> {
+        mem::take(&mut self.ctx.response)
+    }
+
+    /// Returns true if there are pending protocol response bytes.
+    pub fn has_response(&self) -> bool {
+        !self.ctx.response.is_empty()
     }
 
     /// Returns true if a beep was triggered since the last call,
@@ -2700,5 +2724,64 @@ mod tests {
             parser.consume(DOUBLE_WIDTH),
             "Changing invert and character size while in G1 is not supported"
         );
+    }
+
+    #[test]
+    fn test_get_cursor_position_emits_response() {
+        let mut parser = Parser::new(DisplayComponent::VGP2);
+
+        // Move cursor to a known position
+        assert_eq!(parser.consume(ESC), Ok(()));
+        assert_eq!(parser.consume(CSI), Ok(()));
+        assert_eq!(parser.consume(0x30), Ok(())); // 0
+        assert_eq!(parser.consume(0x35), Ok(())); // 5
+        assert_eq!(parser.consume(0x3B), Ok(())); // ;
+        assert_eq!(parser.consume(0x31), Ok(())); // 1
+        assert_eq!(parser.consume(0x30), Ok(())); // 0
+        assert_eq!(parser.consume(0x48), Ok(())); // H
+
+        assert_eq!(parser.ctx().cursor_y, 5);
+        assert_eq!(parser.ctx().cursor_x, 10);
+
+        // Request cursor position (ESC 0x61)
+        assert_eq!(parser.consume(ESC), Ok(()));
+        assert_eq!(parser.consume(0x61), Ok(()));
+
+        // Response should be US <row> <col>
+        assert!(parser.has_response());
+        let response = parser.take_response();
+        assert_eq!(response, vec![US, 0x40 + 5, 0x40 + 10]);
+        assert!(!parser.has_response());
+    }
+
+    #[test]
+    fn test_beep_sets_flag() {
+        let mut parser = Parser::new(DisplayComponent::VGP2);
+
+        assert!(!parser.take_beep());
+
+        assert_eq!(parser.consume(BEEP), Ok(()));
+        assert!(parser.take_beep());
+
+        // Flag should be cleared after take
+        assert!(!parser.take_beep());
+    }
+
+    #[test]
+    fn test_nul_is_ignored() {
+        let mut parser = Parser::new(DisplayComponent::VGP2);
+        assert_eq!(parser.consume(0x00), Ok(()));
+        assert_eq!(parser.ctx().cursor_x, 1);
+        assert_eq!(parser.ctx().cursor_y, 1);
+    }
+
+    #[test]
+    fn test_sub_displays_error_character() {
+        let mut parser = Parser::new(DisplayComponent::VGP2);
+        assert_eq!(parser.consume(0x1A), Ok(()));
+
+        // SUB should display the error symbol (0x7F) and advance cursor
+        assert_eq!(parser.ctx().grid.cell(1, 1).content, '\u{7F}');
+        assert_eq!(parser.ctx().cursor_x, 2);
     }
 }

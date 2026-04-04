@@ -3,6 +3,7 @@ use bevy::window::WindowResolution;
 
 pub const SCREEN_COLUMNS: u8 = 40;
 pub const SCREEN_ROWS: u8 = 24;
+pub const GUIDE_PANEL_WIDTH: f32 = 200.0;
 
 #[derive(Resource, Clone, Debug)]
 pub struct EmulatorConfig {
@@ -20,7 +21,7 @@ impl Default for EmulatorConfig {
             SCREEN_ROWS as f32 * cell_size.y,
         );
         let padding = Vec2::new(48.0, 48.0);
-        let resolution = screen_size + padding;
+        let resolution = screen_size + padding + Vec2::new(GUIDE_PANEL_WIDTH, 0.0);
 
         Self {
             title: "Minitel Emulator".to_owned(),
