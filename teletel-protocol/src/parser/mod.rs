@@ -1292,6 +1292,8 @@ pub struct Context {
     pub grid: Grid,
     pub pending_attributes: PendingAttributes,
     saved_state_for_row_zero: Option<SavedState>,
+
+    beep: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1322,6 +1324,8 @@ impl Context {
             grid: Grid::new(40, 24),
             pending_attributes: PendingAttributes::default(),
             saved_state_for_row_zero: None,
+
+            beep: false,
         }
     }
 
@@ -1515,7 +1519,7 @@ impl Context {
                 }
             }
             Sequence::VisibleCursor(value) => self.visible_cursor = *value,
-            Sequence::Beep => {} //todo: handle beep idk how
+            Sequence::Beep => self.beep = true,
         };
 
         Ok(())
@@ -1721,6 +1725,12 @@ impl Parser {
 
     pub fn ctx(&self) -> &Context {
         &self.ctx
+    }
+
+    /// Returns true if a beep was triggered since the last call,
+    /// and clears the flag.
+    pub fn take_beep(&mut self) -> bool {
+        mem::replace(&mut self.ctx.beep, false)
     }
 
     pub fn consume(&mut self, byte: u8) -> Result<(), Error> {

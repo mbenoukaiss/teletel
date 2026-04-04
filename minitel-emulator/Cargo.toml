@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.18.1"
+bevy = { version = "0.18.1", features = ["wav"] }
 font8x8 = "0.3.1"
 teletel-protocol = { path = "../teletel-protocol", features = ["minitel2"] }
 
