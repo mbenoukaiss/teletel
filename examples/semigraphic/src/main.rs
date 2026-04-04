@@ -3,12 +3,12 @@ extern crate teletel;
 
 use std::error::Error;
 use teletel::functions::{Big, Clear, Inverted, Repeat, SemiGraphic, SetCursor};
-use teletel::terminal::{EmulatorTerminal, WriteableTerminal};
+use teletel::terminal::{TcpTerminal, WriteableTerminal};
 
 /// Displays the Lumon droplet logo from
 /// Severance on the minitel screen
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut term = EmulatorTerminal::connect()?;
+    let mut term = TcpTerminal::emulator()?;
 
     draw_background(&mut term)?;
     draw_droplet(&mut term)?;

@@ -1,7 +1,8 @@
 mod buffer;
-mod emulator;
+#[cfg(feature = "tcp-terminal")]
+mod tcp;
 mod file;
-#[cfg(feature = "serial")]
+#[cfg(feature = "serial-terminal")]
 mod serial;
 mod to_terminal;
 
@@ -11,9 +12,10 @@ use teletel_protocol::codes::*;
 
 pub use to_terminal::ToTerminal;
 pub use buffer::{Buffer, RawBuffer};
-pub use emulator::EmulatorTerminal;
+#[cfg(feature = "tcp-terminal")]
+pub use tcp::TcpTerminal;
 pub use file::FileReceiver;
-#[cfg(feature = "serial")]
+#[cfg(feature = "serial-terminal")]
 pub use serial::SerialTerminal;
 pub use teletel_protocol::parser::Context;
 

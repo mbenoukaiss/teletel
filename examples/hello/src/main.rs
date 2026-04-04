@@ -4,10 +4,10 @@ extern crate teletel;
 use std::error::Error;
 use teletel::drawing::RectangleOutline;
 use teletel::functions::{Beep, Blink, Clear, Color, Foreground, Repeat, SetCursor};
-use teletel::terminal::{EmulatorTerminal, ReadableTerminal};
+use teletel::terminal::{TcpTerminal, ReadableTerminal};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut term = EmulatorTerminal::connect()?;
+    let mut term = TcpTerminal::emulator()?;
 
     send!(
         &mut term,

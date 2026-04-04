@@ -3,10 +3,10 @@ extern crate teletel;
 
 use std::error::Error;
 use teletel::functions::Videotex;
-use teletel::terminal::EmulatorTerminal;
+use teletel::terminal::TcpTerminal;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut term = EmulatorTerminal::connect()?;
+    let mut term = TcpTerminal::emulator()?;
 
     send!(
         &mut term,

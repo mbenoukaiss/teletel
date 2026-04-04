@@ -4,21 +4,24 @@ use std::io::{ErrorKind, Read, Write};
 use std::net::TcpStream;
 use teletel_protocol::parser::{DisplayComponent, Parser};
 
-const EMULATOR_PORT: u16 = 3615;
-
-/// A terminal that connects to the minitel emulator over TCP.
-pub struct EmulatorTerminal {
+/// A terminal that communicates over TCP.
+pub struct TcpTerminal {
     stream: TcpStream,
     parser: Parser,
 }
 
-impl EmulatorTerminal {
-    /// Connect to the emulator on `127.0.0.1:3615`.
-    pub fn connect() -> Result<Self, Error> {
-        let stream = TcpStream::connect(("127.0.0.1", EMULATOR_PORT)).map_err(|e| {
+impl TcpTerminal {
+    /// Connect to `127.0.0.1:3615`.
+    pub fn emulator() -> Result<Self, Error> {
+        Self::connect_to(("127.0.0.1", 3615))
+    }
+
+    /// Connect to a specific address.
+    pub fn connect_to<A: std::net::ToSocketAddrs>(addr: A) -> Result<Self, Error> {
+        let stream = TcpStream::connect(addr).map_err(|e| {
             Error::Io(std::io::Error::new(
                 e.kind(),
-                format!("could not connect to emulator on port {EMULATOR_PORT}: {e} (is the emulator running?)"),
+                format!("could not connect: {e}"),
             ))
         })?;
 
@@ -34,7 +37,7 @@ impl EmulatorTerminal {
     }
 }
 
-impl ReadableTerminal for EmulatorTerminal {
+impl ReadableTerminal for TcpTerminal {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         match self.stream.read(buf) {
             Ok(bytes_read) => Ok(bytes_read),
@@ -45,7 +48,7 @@ impl ReadableTerminal for EmulatorTerminal {
     }
 }
 
-impl WriteableTerminal for EmulatorTerminal {
+impl WriteableTerminal for TcpTerminal {
     fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
         for i in 0..buf.len() {
             self.parser.consume(buf[i])?;
@@ -61,7 +64,7 @@ impl WriteableTerminal for EmulatorTerminal {
     }
 }
 
-impl Contextualized for EmulatorTerminal {
+impl Contextualized for TcpTerminal {
     fn ctx(&self) -> &Context {
         self.parser.ctx()
     }
