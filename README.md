@@ -28,10 +28,10 @@ extern crate teletel;
 
 use std::error::Error;
 use teletel::functions::{Clear, Foreground, Color, Repeat, SetCursor};
-use teletel::terminal::{Optional, SerialTerminal, TcpTerminal, Tee};
+use teletel::terminal::{Optional, SerialTerminal, TcpTerminal, Dual};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut term = Tee::new(
+    let mut term = Dual::new(
         Optional::new(SerialTerminal::new("/dev/ttyUSB0", None)),
         Optional::new(TcpTerminal::emulator()),
     );
@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
-The `Tee` combinator lets you send to both a real Minitel and the emulator at
+The `Dual` combinator lets you send to both a real Minitel and the emulator at
 the same time. `Optional` makes either connection non-fatal if it's unavailable.
 
 If running the code above on Linux gives you a permission error, add your user

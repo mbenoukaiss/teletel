@@ -12,7 +12,7 @@ use crate::Error;
 use teletel_protocol::codes::*;
 
 pub use buffer::{Buffer, RawBuffer};
-pub use combinators::{Optional, Tap, Tee, pipe, bidirectional_pipe};
+pub use combinators::{Optional, Tap, Dual, pipe, bidirectional_pipe};
 pub use file::FileReceiver;
 #[cfg(feature = "serial-terminal")]
 pub use serial::SerialTerminal;

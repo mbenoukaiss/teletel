@@ -1,9 +1,9 @@
 mod optional;
 mod pipe;
 mod tap;
-mod tee;
+mod dual;
 
 pub use optional::Optional;
 pub use pipe::{pipe, bidirectional_pipe};
 pub use tap::Tap;
-pub use tee::Tee;
+pub use dual::Dual;

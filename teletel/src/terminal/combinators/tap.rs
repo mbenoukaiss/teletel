@@ -3,7 +3,7 @@ use crate::Error;
 
 /// Writes to a terminal while logging bytes to a side-channel.
 ///
-/// Unlike [`super::Tee`], the logger's errors are silently ignored so it
+/// Unlike [`super::Dual`], the logger's errors are silently ignored so it
 /// never disrupts the primary terminal.
 pub struct Tap<T, L> {
     pub inner: T,

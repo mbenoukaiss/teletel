@@ -11,7 +11,7 @@ use crate::Error;
 /// ```ignore
 /// // Never fails — if the emulator isn't running, writes are just dropped
 /// let emu = Optional::new(TcpTerminal::emulator());
-/// let mut term = Tee::new(serial, emu);
+/// let mut term = Dual::new(serial, emu);
 /// ```
 pub struct Optional<T> {
     inner: Option<T>,

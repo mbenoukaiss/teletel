@@ -3,10 +3,10 @@ extern crate teletel;
 
 use std::error::Error;
 use teletel::functions::Videotex;
-use teletel::terminal::{Optional, SerialTerminal, TcpTerminal, Tee};
+use teletel::terminal::{Optional, SerialTerminal, TcpTerminal, Dual};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut term = Tee::new(
+    let mut term = Dual::new(
         Optional::new(SerialTerminal::new("/dev/ttyUSB0", None)),
         Optional::new(TcpTerminal::emulator()),
     );
