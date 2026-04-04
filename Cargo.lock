@@ -4493,6 +4493,7 @@ dependencies = [
  "serial2",
  "teletel-derive",
  "teletel-protocol",
+ "thiserror 2.0.18",
  "unidecode",
 ]
 
@@ -4506,6 +4507,9 @@ dependencies = [
 [[package]]
 name = "teletel-protocol"
 version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "termcolor"

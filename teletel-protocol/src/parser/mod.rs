@@ -1,6 +1,7 @@
 use crate::codes::*;
-use std::fmt::{Debug, Display, Formatter, Result as FmtResult, Write};
+use std::fmt::{Debug, Formatter, Result as FmtResult, Write};
 use std::mem;
+use thiserror::Error as ThisError;
 
 macro_rules! err {
     ($($arg:tt)*) => {
@@ -23,7 +24,8 @@ macro_rules! err {
 ///   or exiting a section or a subsection
 /// - Double height, width or size characters are displayed from the bottom left corner
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, ThisError)]
+#[error("{msg}")]
 pub struct Error {
     msg: String,
 }
@@ -31,12 +33,6 @@ pub struct Error {
 impl Error {
     fn new<S: Into<String>>(msg: S) -> Error {
         Error { msg: msg.into() }
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}", self.msg)
     }
 }
 

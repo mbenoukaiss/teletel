@@ -14,7 +14,9 @@ impl HLine {
 
 impl ToTerminal for HLine {
     fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
-        assert!(self.0 <= 40);
+        if self.0 > 40 {
+            return Err(Error::InvalidArgument(format!("HLine width {} exceeds maximum of 40", self.0)));
+        }
 
         let mut character = 0x00;
 
@@ -44,7 +46,9 @@ impl VLine {
 
 impl ToTerminal for VLine {
     fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
-        assert!(self.0 <= 22);
+        if self.0 > 22 {
+            return Err(Error::InvalidArgument(format!("VLine height {} exceeds maximum of 22", self.0)));
+        }
 
         let mut character = 0x00;
 
@@ -81,10 +85,14 @@ impl RectangleOutline {
 
 impl ToTerminal for RectangleOutline {
     fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
-        assert!(self.0 >= 2 && self.0 <= 40);
-        assert!(self.1 >= 2 && self.1 <= 24);
+        if self.0 < 2 || self.0 > 40 {
+            return Err(Error::InvalidArgument(format!("RectangleOutline width {} is out of range 2..=40", self.0)));
+        }
+        if self.1 < 2 || self.1 > 24 {
+            return Err(Error::InvalidArgument(format!("RectangleOutline height {} is out of range 2..=24", self.1)));
+        }
 
-        let character_set = RectangleOutlineCharacterSet::new(self.2);
+        let character_set = RectangleOutlineCharacterSet::new(self.2)?;
 
         SO.to_terminal(term)?;
         character_set.top_left_corner.to_terminal(term)?;
@@ -132,8 +140,8 @@ struct RectangleOutlineCharacterSet {
 }
 
 impl RectangleOutlineCharacterSet {
-    pub fn new(settings: u8) -> RectangleOutlineCharacterSet {
-        match settings {
+    pub fn new(settings: u8) -> Result<RectangleOutlineCharacterSet, Error> {
+        Ok(match settings {
             RectangleOutline::FULL => RectangleOutlineCharacterSet {
                 top_left_corner: sg!(111111),
                 top_right_corner: sg!(111111),
@@ -164,8 +172,8 @@ impl RectangleOutlineCharacterSet {
                 left_line: sg!(010101),
                 right_line: sg!(101010),
             },
-            invalid => panic!("Invalid rectangle settings: {}", invalid),
-        }
+            invalid => return Err(Error::InvalidArgument(format!("invalid rectangle outline setting: {}", invalid))),
+        })
     }
 }
 
@@ -173,8 +181,12 @@ pub struct FilledRectangle(pub u8, pub u8);
 
 impl ToTerminal for FilledRectangle {
     fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error> {
-        assert!(self.0 <= 40);
-        assert!(self.1 <= 23);
+        if self.0 > 40 {
+            return Err(Error::InvalidArgument(format!("FilledRectangle width {} exceeds maximum of 40", self.0)));
+        }
+        if self.1 > 23 {
+            return Err(Error::InvalidArgument(format!("FilledRectangle height {} exceeds maximum of 23", self.1)));
+        }
 
         SO.to_terminal(term)?;
         Repeat(sg!(111111), self.0).to_terminal(term)?;

@@ -31,19 +31,22 @@ impl TcpTransport {
             }
         }
 
-        let client = self.client.as_mut().unwrap();
-        let mut buffer = [0u8; 1024];
-        match client.read(&mut buffer) {
-            Ok(0) => {
-                self.client = None;
-                Ok(None)
+        if let Some(client) = self.client.as_mut() {
+            let mut buffer = [0u8; 1024];
+            match client.read(&mut buffer) {
+                Ok(0) => {
+                    self.client = None;
+                    Ok(None)
+                }
+                Ok(n) => Ok(Some(buffer[..n].to_vec())),
+                Err(err) if err.kind() == io::ErrorKind::WouldBlock => Ok(None),
+                Err(err) => {
+                    self.client = None;
+                    Err(err)
+                }
             }
-            Ok(n) => Ok(Some(buffer[..n].to_vec())),
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => Ok(None),
-            Err(err) => {
-                self.client = None;
-                Err(err)
-            }
+        } else {
+            Ok(None)
         }
     }
 
