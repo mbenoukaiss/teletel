@@ -4,7 +4,7 @@ default-members = ["teletel", "teletel-*", "minitel-emulator"]
 resolver = "2"
 
 [workspace.package]
-rust-version = "1.96"
+rust-version = "1.94"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
