@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     draw_background(&mut term)?;
     draw_droplet(&mut term)?;
 
-    send!(&mut term, [SetCursor(15, 20), Big("Lumon"),])?;
+    send!(&mut term, [SetCursor(16, 20), Big("Lumon"),])?;
 
     Ok(())
 }
@@ -27,7 +27,7 @@ fn draw_background(term: &mut dyn WriteableTerminal) -> Result<(), Box<dyn Error
         [
             Clear,
             SemiGraphic(list![
-                SetCursor(10, 4),
+                SetCursor(11, 4),
                 sg!(000000),
                 sg!(000111),
                 sg!(011111),
@@ -35,7 +35,7 @@ fn draw_background(term: &mut dyn WriteableTerminal) -> Result<(), Box<dyn Error
                 sg!(101111),
                 sg!(001011),
                 sg!(000000),
-                SetCursor(10, 5),
+                SetCursor(11, 5),
                 SemiGraphic(list![sg!(010111), Repeat(sg!(111111), 18), sg!(101011),]),
             ]),
         ]
@@ -44,18 +44,18 @@ fn draw_background(term: &mut dyn WriteableTerminal) -> Result<(), Box<dyn Error
     for i in 1..12 {
         send!(
             term,
-            [SetCursor(10, 5 + i), SemiGraphic(Repeat(sg!(111111), 20)),]
+            [SetCursor(11, 5 + i), SemiGraphic(Repeat(sg!(111111), 20)),]
         )?;
     }
 
     send!(
         term,
         [SemiGraphic(list![
-            SetCursor(10, 16),
+            SetCursor(11, 16),
             sg!(110101),
             Repeat(sg!(111111), 18),
             sg!(111010),
-            SetCursor(10, 17),
+            SetCursor(11, 17),
             sg!(000000),
             sg!(110100),
             sg!(111101),
@@ -73,38 +73,38 @@ fn draw_droplet(term: &mut dyn WriteableTerminal) -> Result<(), Box<dyn Error>> 
     send!(
         term,
         [Inverted(list![SemiGraphic(list![
-            SetCursor(19, 6),
+            SetCursor(20, 6),
             sg!(101000),
             sg!(010100),
-            SetCursor(18, 7),
+            SetCursor(19, 7),
             sg!(111010),
             Repeat(sg!(000000), 2),
             sg!(110101),
-            SetCursor(17, 8),
+            SetCursor(18, 8),
             sg!(111110),
             Repeat(sg!(000000), 4),
             sg!(111101),
-            SetCursor(17, 9),
+            SetCursor(18, 9),
             sg!(100000),
             Repeat(sg!(000000), 4),
             sg!(010000),
-            SetCursor(16, 10),
+            SetCursor(17, 10),
             sg!(101000),
             Repeat(sg!(000000), 6),
             sg!(010100),
-            SetCursor(15, 11),
+            SetCursor(16, 11),
             sg!(111010),
             Repeat(sg!(000000), 8),
             sg!(110101),
-            SetCursor(15, 12),
+            SetCursor(16, 12),
             Repeat(sg!(000000), 10),
-            SetCursor(15, 13),
+            SetCursor(16, 13),
             Repeat(sg!(000000), 10),
-            SetCursor(15, 14),
+            SetCursor(16, 14),
             sg!(101011),
             Repeat(sg!(000000), 8),
             sg!(010111),
-            SetCursor(16, 15),
+            SetCursor(17, 15),
             sg!(101111),
             sg!(001011),
             Repeat(sg!(000011), 4),
