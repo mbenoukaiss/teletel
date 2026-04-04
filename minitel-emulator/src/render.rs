@@ -13,6 +13,7 @@ use teletel_protocol::parser::{Cell, Context, DisplayComponent, Parser};
 
 const BLINK_INTERVAL_SECS: f32 = 0.5;
 const CURSOR_Z: f32 = 3.0;
+const DEBUG_HIGHLIGHT_Z: f32 = 2.0;
 const BACKGROUND_Z: f32 = 0.0;
 const FOREGROUND_Z: f32 = 1.0;
 
@@ -30,6 +31,7 @@ impl Plugin for EmulatorPlugin {
                     capture_keyboard_input,
                     advance_blink_phase,
                     render_terminal,
+                    update_debug_overlay,
                 )
                     .chain(),
             );
@@ -128,6 +130,21 @@ struct CellEntities {
 
 #[derive(Component)]
 struct CursorOverlay;
+
+#[derive(Component)]
+struct DebugHighlight;
+
+#[derive(Component)]
+struct DebugMouseCol;
+
+#[derive(Component)]
+struct DebugMouseRow;
+
+#[derive(Component)]
+struct DebugCursorCol;
+
+#[derive(Component)]
+struct DebugCursorRow;
 
 fn setup_terminal(mut commands: Commands, config: Res<EmulatorConfig>) {
     let screen_size = config.screen_size();
@@ -248,6 +265,80 @@ fn setup_terminal(mut commands: Commands, config: Res<EmulatorConfig>) {
             ));
         }
     }
+
+    // Debug overlay entities
+    commands.spawn((
+        Sprite::from_color(Color::srgba(0.5, 0.5, 0.5, 0.4), config.cell_size),
+        Transform::from_translation(Vec3::new(0.0, 0.0, DEBUG_HIGHLIGHT_Z)),
+        Anchor::BOTTOM_LEFT,
+        Visibility::Hidden,
+        DebugHighlight,
+    ));
+
+    // Info table: 3 columns (label, Col, Row) x 3 rows (header, Mouse, Cursor)
+    let table_x = guide_x;
+    let table_bottom = -screen_size.y / 2.0;
+    let row_height = 16.0;
+    let col1_x = table_x;
+    let col2_x = table_x + 55.0;
+    let col3_x = table_x + 95.0;
+
+    // Header row
+    let y = table_bottom + row_height * 2.0;
+    for (x, text) in [(col2_x, "Col"), (col3_x, "Row")] {
+        commands.spawn((
+            Text2d::new(text),
+            key_style.clone(),
+            Anchor::BOTTOM_LEFT,
+            Transform::from_translation(Vec3::new(x, y, FOREGROUND_Z)),
+        ));
+    }
+
+    // Mouse row
+    let y = table_bottom + row_height;
+    commands.spawn((
+        Text2d::new("Mouse"),
+        key_style.clone(),
+        Anchor::BOTTOM_LEFT,
+        Transform::from_translation(Vec3::new(col1_x, y, FOREGROUND_Z)),
+    ));
+    commands.spawn((
+        Text2d::new(""),
+        key_style.clone(),
+        Anchor::BOTTOM_LEFT,
+        Transform::from_translation(Vec3::new(col2_x, y, FOREGROUND_Z)),
+        DebugMouseCol,
+    ));
+    commands.spawn((
+        Text2d::new(""),
+        key_style.clone(),
+        Anchor::BOTTOM_LEFT,
+        Transform::from_translation(Vec3::new(col3_x, y, FOREGROUND_Z)),
+        DebugMouseRow,
+    ));
+
+    // Cursor row
+    let y = table_bottom;
+    commands.spawn((
+        Text2d::new("Cursor"),
+        key_style.clone(),
+        Anchor::BOTTOM_LEFT,
+        Transform::from_translation(Vec3::new(col1_x, y, FOREGROUND_Z)),
+    ));
+    commands.spawn((
+        Text2d::new(""),
+        key_style.clone(),
+        Anchor::BOTTOM_LEFT,
+        Transform::from_translation(Vec3::new(col2_x, y, FOREGROUND_Z)),
+        DebugCursorCol,
+    ));
+    commands.spawn((
+        Text2d::new(""),
+        key_style.clone(),
+        Anchor::BOTTOM_LEFT,
+        Transform::from_translation(Vec3::new(col3_x, y, FOREGROUND_Z)),
+        DebugCursorRow,
+    ));
 }
 
 fn pump_transport_input(
@@ -475,6 +566,80 @@ fn coverage_map(ctx: &Context) -> Vec<Option<usize>> {
     }
 
     coverage
+}
+
+fn update_debug_overlay(
+    window: Query<&Window>,
+    camera: Query<(&Camera, &GlobalTransform)>,
+    config: Res<EmulatorConfig>,
+    terminal: Res<TerminalState>,
+    mut highlight: Query<(&mut Transform, &mut Visibility), With<DebugHighlight>>,
+    mut mouse_col: Query<&mut Text2d, (With<DebugMouseCol>, Without<DebugMouseRow>, Without<DebugCursorCol>, Without<DebugCursorRow>)>,
+    mut mouse_row: Query<&mut Text2d, (With<DebugMouseRow>, Without<DebugMouseCol>, Without<DebugCursorCol>, Without<DebugCursorRow>)>,
+    mut cursor_col: Query<&mut Text2d, (With<DebugCursorCol>, Without<DebugCursorRow>, Without<DebugMouseCol>, Without<DebugMouseRow>)>,
+    mut cursor_row: Query<&mut Text2d, (With<DebugCursorRow>, Without<DebugCursorCol>, Without<DebugMouseCol>, Without<DebugMouseRow>)>,
+) {
+    let ctx = terminal.parser.ctx();
+
+    if let Ok(mut text) = cursor_col.single_mut() {
+        **text = format!("{}", ctx.cursor_x);
+    }
+    if let Ok(mut text) = cursor_row.single_mut() {
+        **text = format!("{}", ctx.cursor_y);
+    }
+
+    let (Ok(window), Ok((camera, camera_transform))) =
+        (window.single(), camera.single()) else { return };
+
+    let Some(cursor_pos) = window.cursor_position() else {
+        if let Ok((_, mut vis)) = highlight.single_mut() {
+            *vis = Visibility::Hidden;
+        }
+        if let Ok(mut text) = mouse_col.single_mut() {
+            **text = String::new();
+        }
+        if let Ok(mut text) = mouse_row.single_mut() {
+            **text = String::new();
+        }
+        return;
+    };
+
+    let Ok(world) = camera.viewport_to_world_2d(camera_transform, cursor_pos) else {
+        return;
+    };
+
+    let screen = config.screen_size();
+    let left = -screen.x / 2.0;
+    let top = screen.y / 2.0;
+
+    let col = ((world.x - left) / config.cell_size.x).floor() as i32 + 1;
+    let row = ((top - world.y) / config.cell_size.y).floor() as i32 + 1;
+
+    if col >= 1 && col <= SCREEN_COLUMNS as i32 && row >= 1 && row <= SCREEN_ROWS as i32 {
+        let origin = cell_position(&config, col as u8, row as u8);
+
+        if let Ok((mut transform, mut vis)) = highlight.single_mut() {
+            transform.translation = origin.extend(DEBUG_HIGHLIGHT_Z);
+            *vis = Visibility::Visible;
+        }
+
+        if let Ok(mut text) = mouse_col.single_mut() {
+            **text = format!("{col}");
+        }
+        if let Ok(mut text) = mouse_row.single_mut() {
+            **text = format!("{row}");
+        }
+    } else {
+        if let Ok((_, mut vis)) = highlight.single_mut() {
+            *vis = Visibility::Hidden;
+        }
+        if let Ok(mut text) = mouse_col.single_mut() {
+            **text = String::new();
+        }
+        if let Ok(mut text) = mouse_row.single_mut() {
+            **text = String::new();
+        }
+    }
 }
 
 fn map_character(character: char) -> Option<u8> {
