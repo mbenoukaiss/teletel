@@ -3,6 +3,7 @@ use bevy::camera::{OrthographicProjection, Projection, ScalingMode};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
+use super::crt::CrtMaterial;
 use super::debug::*;
 use super::palette::cell_position;
 use super::{
@@ -23,6 +24,7 @@ pub(super) fn setup_terminal(mut commands: Commands, config: Res<EmulatorConfig>
             ..OrthographicProjection::default_2d()
         }),
         Transform::from_translation(Vec3::new(GUIDE_PANEL_WIDTH / 2.0, 0.0, 0.0)),
+        CrtMaterial::default(),
     ));
 
     // cell entities (background + foreground per cell)
@@ -147,6 +149,7 @@ pub(super) fn setup_terminal(mut commands: Commands, config: Res<EmulatorConfig>
         ("Ctrl+G", "Grid", Some(DebugToggleLabel::Grid)),
         ("Ctrl+C", "Cursor", Some(DebugToggleLabel::Cursor)),
         ("Ctrl+M", "Mouse", Some(DebugToggleLabel::Mouse)),
+        ("Ctrl+F", "CRT filter", Some(DebugToggleLabel::Crt)),
         ("Ctrl+B", "Baud rate", None),
     ];
 
@@ -167,7 +170,7 @@ pub(super) fn setup_terminal(mut commands: Commands, config: Res<EmulatorConfig>
         ));
         if let Some(toggle) = toggle {
             label_entity.insert(*toggle);
-            if *toggle == DebugToggleLabel::Mouse {
+            if *toggle == DebugToggleLabel::Mouse || *toggle == DebugToggleLabel::Crt {
                 label_entity.insert(enabled_color.clone());
             }
         }
@@ -181,6 +184,7 @@ pub(super) fn setup_terminal(mut commands: Commands, config: Res<EmulatorConfig>
         Anchor::BOTTOM_LEFT,
         Visibility::Hidden,
         DebugHighlight,
+
     ));
 
     commands.spawn((
@@ -189,6 +193,7 @@ pub(super) fn setup_terminal(mut commands: Commands, config: Res<EmulatorConfig>
         Anchor::BOTTOM_LEFT,
         Visibility::Hidden,
         DebugCursorHighlight,
+
     ));
 
     // grid overlay lines
@@ -209,6 +214,7 @@ pub(super) fn setup_terminal(mut commands: Commands, config: Res<EmulatorConfig>
             Anchor::BOTTOM_LEFT,
             Visibility::Hidden,
             GridOverlay,
+    
         ));
     }
 
@@ -221,6 +227,7 @@ pub(super) fn setup_terminal(mut commands: Commands, config: Res<EmulatorConfig>
             Anchor::TOP_LEFT,
             Visibility::Hidden,
             GridOverlay,
+    
         ));
     }
 

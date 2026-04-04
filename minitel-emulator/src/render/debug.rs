@@ -1,6 +1,7 @@
 use crate::config::{EmulatorConfig, SCREEN_COLUMNS, SCREEN_ROWS};
 use bevy::prelude::*;
 
+use super::crt::CrtMaterial;
 use super::palette::cell_position;
 use super::TerminalState;
 
@@ -79,6 +80,7 @@ pub(super) enum DebugToggleLabel {
     Grid,
     Cursor,
     Mouse,
+    Crt,
 }
 
 #[derive(Component)]
@@ -100,6 +102,7 @@ pub(super) fn handle_debug_shortcuts(
     mut debug_state: ResMut<DebugState>,
     mut baud_text: Query<&mut Text2d, With<DebugBaudText>>,
     mut toggle_labels: Query<(&DebugToggleLabel, &mut TextColor)>,
+    mut crt_query: Query<&mut CrtMaterial>,
 ) {
     let ctrl_held = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
     if ctrl_held {
@@ -119,15 +122,22 @@ pub(super) fn handle_debug_shortcuts(
                 **text = debug_state.baud_rate.label().to_string();
             }
         }
+        if keys.just_pressed(KeyCode::KeyF) {
+            if let Ok(mut crt) = crt_query.single_mut() {
+                crt.enabled = if crt.enabled > 0.5 { 0.0 } else { 1.0 };
+            }
+        }
     }
 
     // always update toggle label colors
     let enabled_color = Color::srgb(0.8, 0.8, 0.8);
     let disabled_color = Color::srgb(0.5, 0.5, 0.5);
 
+    let crt_enabled = crt_query.single().map(|c| c.enabled > 0.5).unwrap_or(false);
     for (toggle, mut color) in &mut toggle_labels {
         let active = if *toggle == DebugToggleLabel::Grid { debug_state.grid_visible }
         else if *toggle == DebugToggleLabel::Cursor { debug_state.cursor_highlight }
+        else if *toggle == DebugToggleLabel::Crt { crt_enabled }
         else { debug_state.mouse_highlight };
 
         *color = TextColor(if active { enabled_color } else { disabled_color });
@@ -137,7 +147,7 @@ pub(super) fn handle_debug_shortcuts(
 #[allow(clippy::too_many_arguments)]
 pub(super) fn update_debug_overlay(
     window: Query<&Window>,
-    camera: Query<(&Camera, &GlobalTransform)>,
+    camera: Query<(&Camera, &GlobalTransform, &CrtMaterial)>,
     config: Res<EmulatorConfig>,
     terminal: Res<TerminalState>,
     debug_state: Res<DebugState>,
@@ -192,7 +202,7 @@ pub(super) fn update_debug_overlay(
         return;
     }
 
-    let (Ok(window), Ok((camera, camera_transform))) =
+    let (Ok(window), Ok((camera, camera_transform, crt))) =
         (window.single(), camera.single()) else { return };
 
     let Some(cursor_pos) = window.cursor_position() else {
@@ -215,6 +225,26 @@ pub(super) fn update_debug_overlay(
     let screen = config.screen_size();
     let left = -screen.x / 2.0;
     let top_edge = screen.y / 2.0;
+
+    // When CRT is enabled, apply barrel distortion to find which source cell
+    // is visually displayed at the mouse's screen position. The shader maps
+    // screen UV → source UV via barrel distortion, so we replicate that here.
+    let world = if crt.enabled > 0.5 {
+        let local_uv = Vec2::new(
+            (world.x - left) / screen.x,
+            (top_edge - world.y) / screen.y,
+        );
+        let curvature = crt.curvature * 10.0;
+        let centered = local_uv - Vec2::new(0.5, 0.5);
+        let dist_sq = centered.dot(centered);
+        let distorted = centered * (1.0 + curvature * dist_sq) + Vec2::new(0.5, 0.5);
+        Vec2::new(
+            left + distorted.x * screen.x,
+            top_edge - distorted.y * screen.y,
+        )
+    } else {
+        world
+    };
 
     let col = ((world.x - left) / config.cell_size.x).floor() as i32 + 1;
     let row = ((top_edge - world.y) / config.cell_size.y).floor() as i32 + 1;

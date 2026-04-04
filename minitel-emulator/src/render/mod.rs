@@ -1,10 +1,12 @@
 mod beep;
+pub(crate) mod crt;
 mod debug;
 mod palette;
 mod setup;
 mod terminal;
 
 use crate::transport::TcpTransport;
+use bevy::core_pipeline::fullscreen_material::FullscreenMaterialPlugin;
 use bevy::prelude::*;
 use std::collections::VecDeque;
 use teletel_protocol::parser::{DisplayComponent, Parser};
@@ -19,7 +21,8 @@ pub struct EmulatorPlugin;
 
 impl Plugin for EmulatorPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<crate::glyphs::GlyphCache>()
+        app.add_plugins(FullscreenMaterialPlugin::<crt::CrtMaterial>::default())
+            .init_resource::<crate::glyphs::GlyphCache>()
             .init_resource::<TerminalState>()
             .init_resource::<debug::DebugState>()
             .add_systems(Startup, (setup::setup_terminal, beep::setup_beep_sound))
@@ -32,6 +35,7 @@ impl Plugin for EmulatorPlugin {
                     terminal::advance_blink_phase,
                     terminal::render_terminal,
                     debug::update_debug_overlay,
+                    crt::update_crt_screen_bounds,
                 )
                     .chain(),
             );
