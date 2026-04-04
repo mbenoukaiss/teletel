@@ -5,4 +5,13 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.18.1"
-bevy_ecs_tilemap = "0.18.1"
+font8x8 = "0.3.1"
+teletel-protocol = { path = "../teletel-protocol", features = ["minitel2"] }
+
+# Workaround for objc2-foundation 0.2.2 panic on macOS 26 (Tahoe).
+# Bevy 0.18.1 → winit 0.30.9 → objc2-foundation 0.2.2 has a signed/unsigned
+# type encoding mismatch in NSEnumerator. The relax-sign-encoding feature
+# makes objc2 tolerate this. Can be removed once bevy upgrades to winit ≥ 0.30.12.
+# See: https://github.com/bevyengine/bevy/issues/19625
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.5.2", features = ["relax-sign-encoding"] }

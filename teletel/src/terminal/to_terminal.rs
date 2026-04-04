@@ -1,6 +1,6 @@
-use teletel_protocol::codes::*;
-use crate::Error;
 use crate::terminal::WriteableTerminal;
+use crate::Error;
+use teletel_protocol::codes::*;
 
 pub trait ToTerminal {
     fn to_terminal(&self, term: &mut dyn WriteableTerminal) -> Result<(), Error>;
@@ -54,12 +54,12 @@ impl ToTerminal for char {
                 }
 
                 let decoded = unidecode::unidecode_char(c).as_bytes();
-                if decoded.len() > 1|| decoded[0] < 0x20 || decoded[0] > 0x7F {
+                if decoded.len() > 1 || decoded[0] < 0x20 || decoded[0] > 0x7F {
                     return Err(Error::InvalidCharacter(*self));
                 }
 
                 term.write(&decoded[0..1])
-            },
+            }
         }
     }
 }
@@ -102,10 +102,10 @@ impl<F: Fn(&mut dyn WriteableTerminal) -> Result<(), Error>> ToTerminal for F {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::terminal::{Context, Contextualized, RawBuffer, ReadableTerminal};
     use std::cmp;
     use std::time::Duration;
     use teletel_protocol::parser::DisplayComponent;
-    use crate::terminal::{RawBuffer, Context, Contextualized, ReadableTerminal};
 
     #[test]
     fn test_to_terminal() {
@@ -117,14 +117,13 @@ mod tests {
         [0x02, 0x03].to_terminal(&mut buf).unwrap();
         "bonjour".to_terminal(&mut buf).unwrap();
 
-        assert_eq!(buf.data(), [
-            0x01,
-            b'A',
-            0x02, 0x03,
-            0x02, 0x03,
-            0x02, 0x03,
-            b'b', b'o', b'n',b'j', b'o', b'u', b'r',
-        ]);
+        assert_eq!(
+            buf.data(),
+            [
+                0x01, b'A', 0x02, 0x03, 0x02, 0x03, 0x02, 0x03, b'b', b'o', b'n', b'j', b'o', b'u',
+                b'r',
+            ]
+        );
     }
 
     #[test]
@@ -150,30 +149,27 @@ mod tests {
         assert_eq!(buf.data(), &[0x19, 0x4B, b'c']);
 
         let mut buf = RawBuffer::new();
-        "Bonjour ceci est une chaine sans accents".to_terminal(&mut buf).unwrap();
+        "Bonjour ceci est une chaine sans accents"
+            .to_terminal(&mut buf)
+            .unwrap();
 
-        assert_eq!(buf.data(), "Bonjour ceci est une chaine sans accents".as_bytes());
+        assert_eq!(
+            buf.data(),
+            "Bonjour ceci est une chaine sans accents".as_bytes()
+        );
 
         let mut buf = RawBuffer::new();
         "àäâéèêëîïöôùüûç".to_terminal(&mut buf).unwrap();
 
-        assert_eq!(buf.data(), &[
-            0x19, 0x41, b'a',
-            0x19, 0x48, b'a',
-            0x19, 0x43, b'a',
-            0x19, 0x42, b'e',
-            0x19, 0x41, b'e',
-            0x19, 0x43, b'e',
-            0x19, 0x48, b'e',
-            0x19, 0x43, b'i',
-            0x19, 0x48, b'i',
-            0x19, 0x48, b'o',
-            0x19, 0x43, b'o',
-            0x19, 0x41, b'u',
-            0x19, 0x48, b'u',
-            0x19, 0x43, b'u',
-            0x19, 0x4B, b'c',
-        ]);
+        assert_eq!(
+            buf.data(),
+            &[
+                0x19, 0x41, b'a', 0x19, 0x48, b'a', 0x19, 0x43, b'a', 0x19, 0x42, b'e', 0x19, 0x41,
+                b'e', 0x19, 0x43, b'e', 0x19, 0x48, b'e', 0x19, 0x43, b'i', 0x19, 0x48, b'i', 0x19,
+                0x48, b'o', 0x19, 0x43, b'o', 0x19, 0x41, b'u', 0x19, 0x48, b'u', 0x19, 0x43, b'u',
+                0x19, 0x4B, b'c',
+            ]
+        );
 
         let mut buf = RawBuffer::new();
         "ÀÄÂÉÈÊËÎÏÖÔÙÜÛÇ".to_terminal(&mut buf).unwrap();
@@ -183,12 +179,10 @@ mod tests {
         let mut buf = RawBuffer::new();
         "œŒßẞ".to_terminal(&mut buf).unwrap();
 
-        assert_eq!(buf.data(), &[
-            0x19, 0x7A,
-            0x19, 0x6A,
-            0x19, 0x7B,
-            0x19, 0x7B,
-        ]);
+        assert_eq!(
+            buf.data(),
+            &[0x19, 0x7A, 0x19, 0x6A, 0x19, 0x7B, 0x19, 0x7B,]
+        );
     }
 
     #[test]
@@ -259,7 +253,9 @@ mod tests {
             'C'.to_terminal(term)?;
 
             Ok(())
-        }).to_terminal(&mut buf).unwrap();
+        })
+        .to_terminal(&mut buf)
+        .unwrap();
 
         assert_eq!(buf.data(), [b'A', b'B', b'C']);
     }

@@ -1200,7 +1200,10 @@ impl Grid {
         let mut row = self.data[row_start..row_end].to_vec();
         let delete_from = x as usize - 1;
         row.drain(delete_from..delete_from + count as usize);
-        row.extend(std::iter::repeat_n(Cell::space(attributes, false), count as usize));
+        row.extend(std::iter::repeat_n(
+            Cell::space(attributes, false),
+            count as usize,
+        ));
         row.truncate(self.width);
 
         self.data.splice(row_start..row_end, row);

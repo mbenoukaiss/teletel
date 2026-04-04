@@ -4,13 +4,13 @@ extern crate teletel;
 use std::error::Error;
 use teletel::drawing::RectangleOutline;
 use teletel::functions::{Beep, Blink, Clear, Color, Foreground, Repeat, SetCursor};
-use teletel::terminal::{ReadableTerminal, SerialTerminal};
+use teletel::terminal::{EmulatorTerminal, ReadableTerminal};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut serial = SerialTerminal::new("/dev/ttyUSB0", None)?;
+    let mut term = EmulatorTerminal::connect()?;
 
     send!(
-        &mut serial,
+        &mut term,
         [
             Clear,
             SetCursor(9, 11),
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!(
         "read from keyboard: {}",
-        String::from_utf8(serial.read_until_enter()?)?
+        String::from_utf8(term.read_until_enter()?)?
     );
 
     Ok(())

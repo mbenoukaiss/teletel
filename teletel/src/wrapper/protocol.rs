@@ -78,10 +78,15 @@ pub trait ProtocolExtension: ReadableTerminal + WriteableTerminal {
     }
 
     fn set_page_mode(&mut self, mode: PageMode) -> Result<(), Error> {
-        self.write(&[ESC, PRO2, match mode {
-            PageMode::Page => STOP,
-            PageMode::Scroll => START,
-        }, SCROLL])?;
+        self.write(&[
+            ESC,
+            PRO2,
+            match mode {
+                PageMode::Page => STOP,
+                PageMode::Scroll => START,
+            },
+            SCROLL,
+        ])?;
 
         let mut response = vec![0; 4];
         self.read_exact(&mut response)?;
