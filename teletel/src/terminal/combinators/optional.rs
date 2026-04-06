@@ -32,7 +32,8 @@ impl<T> Optional<T> {
 impl<T: WriteableTerminal> WriteableTerminal for Optional<T> {
     fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
         if let Some(inner) = &mut self.inner {
-            if inner.write(buf).is_err() {
+            if let Err(err) = inner.write(buf) {
+                eprintln!("optional write error, disconnecting: {err}");
                 self.inner = None;
             }
         }
@@ -41,7 +42,8 @@ impl<T: WriteableTerminal> WriteableTerminal for Optional<T> {
 
     fn flush(&mut self) -> Result<(), Error> {
         if let Some(inner) = &mut self.inner {
-            if inner.flush().is_err() {
+            if let Err(err) = inner.flush() {
+                eprintln!("optional flush error, disconnecting: {err}");
                 self.inner = None;
             }
         }
@@ -54,7 +56,10 @@ impl<T: ReadableTerminal> ReadableTerminal for Optional<T> {
         if let Some(inner) = &mut self.inner {
             match inner.read(buf) {
                 Ok(n) => return Ok(n),
-                Err(_) => self.inner = None,
+                Err(err) => {
+                    eprintln!("optional read error, disconnecting: {err}");
+                    self.inner = None;
+                }
             }
         }
         Ok(0)
