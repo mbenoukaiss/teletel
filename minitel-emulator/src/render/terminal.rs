@@ -78,11 +78,21 @@ pub(super) fn capture_keyboard_input(
         return;
     }
 
+    let shift_held = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+
     let mut bytes = Vec::new();
 
     for event in keyboard_inputs.read() {
         if !event.state.is_pressed() {
             continue;
+        }
+
+        // shift+enter = Envoi, shift+tab = Retour
+        if shift_held {
+            if let Some(mapped) = map_shift_key(event.key_code) {
+                bytes.extend_from_slice(mapped);
+                continue;
+            }
         }
 
         if let Some(mapped) = map_named_key(event.key_code) {
@@ -270,6 +280,18 @@ fn map_character(character: char) -> Option<u8> {
     }
 }
 
+fn map_shift_key(code: KeyCode) -> Option<&'static [u8]> {
+    use teletel_protocol::codes::keyboard;
+
+    if code == KeyCode::Enter || code == KeyCode::NumpadEnter {
+        Some(&keyboard::ENVOI)
+    } else if code == KeyCode::Tab {
+        Some(&keyboard::RETOUR)
+    } else {
+        None
+    }
+}
+
 fn map_named_key(code: KeyCode) -> Option<&'static [u8]> {
     use teletel_protocol::codes::keyboard;
 
@@ -278,7 +300,7 @@ fn map_named_key(code: KeyCode) -> Option<&'static [u8]> {
     } else if code == KeyCode::Space {
         Some(&[0x20])
     } else if code == KeyCode::Tab {
-        Some(&[0x09])
+        Some(&keyboard::SUITE)
     } else if code == KeyCode::Escape {
         Some(&[0x1B])
     } else if code == KeyCode::Backspace || code == KeyCode::Delete {
